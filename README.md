@@ -1,2 +1,3 @@
 # re-veal-v2
-reveal project in Rust and RDBMS
+refactoring of the Re-veal project.
+Data stored using a RDBMS database
