@@ -32,10 +32,20 @@ def init_database():
                 cursor.execute(statement)
         conn.commit()
 
-def execute_query_statement(sqlStatement: str, size:Optional[int] = None ) -> List[Any]:
-    with _connect() as conn:
+def fetch(sqlStatement: str,values:Optional[tuple] = None, 
+          size:Optional[int] = None , conn: Connection|None =  None) -> List[Any]:
+    if conn == None:
+        with _connect() as conn:
+            return __execute_sql_query(conn, sqlStatement, values)
+    return __execute_sql_query(conn, sqlStatement, values, size)
+
+def __execute_sql_query(conn:Connection, sqlStatement: str,
+                        values: tuple | None   = None, size: int | None = None) -> List[Any]:
         cursor = conn.cursor()
-        cursor.execute(sqlStatement)
+        if values is None:
+            cursor.execute(sqlStatement)
+        else:
+            cursor.execute(sqlStatement,values)
         if size is None:
             return  cursor.fetchall() 
         else:

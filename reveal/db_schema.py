@@ -1,6 +1,6 @@
 sql_statements = [
 """
-create table if not exists pulse_data(
+create table if not exists pulse(
     transaction_id text primary key,
     procedure_id text,
     trans_group_id text,
@@ -74,7 +74,10 @@ create table if not exists propertyfinder (
         file_path text,
         score real,
         user_discarded integer,
-        description  text
+        description  text,
+        latitude real, 
+        longitude real
+
     )
 """
 

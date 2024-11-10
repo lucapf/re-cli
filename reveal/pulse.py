@@ -24,8 +24,8 @@ def insert(transactions: Optional[list[dict]]) -> int:
         logging.info("insert pulse transaction. No data provided.")
         return 0
     ids = _map_transaction(transactions)
-    existing_ids_sql ="select transaction_id from pulse_data where transaction_id in ({seq})"
-    existing_ids = database_util.execute_query_statement( \
+    existing_ids_sql ="select transaction_id from pulse where transaction_id in ({seq})"
+    existing_ids = database_util.fetch( \
             existing_ids_sql.format(seq=','.join(['?']*len(ids))), tuple(ids))
     if len(ids) == len(existing_ids):
         logging.info("all ids provided are already present")
@@ -38,7 +38,7 @@ def insert(transactions: Optional[list[dict]]) -> int:
     return len(ids) - len(existing_ids)
 
 def _insert_transaction(t:dict, conn: Connection):
-    sql_insert_statement = "insert into pulse_data ({columns}) values({values}) " \
+    sql_insert_statement = "insert into pulse ({columns}) values({values}) " \
         .format(columns=','.join(t.keys()), values=','.join(['?']*len(t.keys())))
     database_util.execute_insert_statement(sql_insert_statement, tuple(t.values()))
 

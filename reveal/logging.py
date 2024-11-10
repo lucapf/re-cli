@@ -13,4 +13,5 @@ def err( message: str):
     logger.error(message)
 
 
-
+def __init__():
+    logger.add("log_{time}.log")

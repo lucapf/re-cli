@@ -22,7 +22,7 @@ class TestPulse(unittest.TestCase):
         self.assertEqual(list(ids)[2], 2)
 
     def test_insert_transations(self):
-        database_util.execute_insert_statement("delete from pulse_data")
+        database_util.execute_insert_statement("delete from pulse")
         new_items_count = pulse.insert(data)
         self.assertEqual(new_items_count, len(data))
         new_items_count = pulse.insert(data)
