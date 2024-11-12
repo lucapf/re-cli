@@ -51,6 +51,23 @@ def __execute_sql_query(conn:Connection, sqlStatement: str,
         else:
             return cursor.fetchmany(size)
 
+def __execute_sql_single_query(conn: Connection, sql_statement: str, values: tuple| None ) -> Any:
+    cursor = conn.cursor()
+    if values is None:
+        cursor.execute(sql_statement)
+    else:
+        cursor.execute(sql_statement, values)
+    return cursor.fetchone()
+
+def fetchone ( sql_statement: str, values: tuple|None = None, \
+               conn: Connection|None = None) -> Any:
+    if conn is None:
+        with _connect() as conn:
+            return __execute_sql_single_query(conn, sql_statement, values)
+    else:
+        return __execute_sql_single_query(conn, sql_statement, values)
+
+
 def execute_insert_statement(sql_insert_template: str,values: Optional[tuple] = None,  conn: Optional[Connection] = None, do_commit: bool = True):
     if conn is None:
         conn = _connect()

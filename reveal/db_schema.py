@@ -59,7 +59,7 @@ create table if not exists propertyfinder (
         type text,
         price integer,
         size integer,
-        bedrooms integer,
+        bedrooms text,
         bathrooms integer,
         price_per_sqft real,
         city text,

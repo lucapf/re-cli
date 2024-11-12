@@ -2,7 +2,7 @@ import json
 from typing import Optional
 import unittest
 
-from reveal import logging, util, propertyfinder
+from reveal import database_util, logging, util, propertyfinder
 
 class test_propertyfinder(unittest.TestCase):
    
@@ -11,10 +11,10 @@ class test_propertyfinder(unittest.TestCase):
             property_data = propertyfinder._extract_data(test_file.read())
             with open("test_data/propertyfinder.json", "w") as json_file:
                 json_file.write(json.dumps(property_data, indent=2))
-            logging.info(f"data: {property_data}")
+            # logging.info(f"data: {property_data}")
             self.assertIsNotNone(property_data)
             if property_data is not None: # only to avoid semantic error
-                self.assertEqual(len(property_data["listings"]),30)
+                self.assertEqual(len(property_data),30)
 
     def test_filter_out_non_properties(self): 
         with open("test_data/propertyfinder.html", "r") as test_file:
@@ -22,14 +22,14 @@ class test_propertyfinder(unittest.TestCase):
         pp  = propertyfinder._filter_out_non_properties(property_data)
         self.assertIsNotNone(pp)
         if pp is not None: # always true
-            self.assertEqual(len(pp["listings"]), 25)
+            self.assertEqual(len(pp), 25)
 
     def test_mapping_properties(self):
         with open("test_data/propertyfinder.html", "r") as test_file:
             property_data = propertyfinder._extract_data(test_file.read())
             self.assertIsNotNone(property_data)
             if property_data is not None: #always true
-                pf_property = property_data["listings"][0]
+                pf_property = property_data[0]
                 db_fields = propertyfinder._map_db_fields(pf_property)
                 self.assertIsNotNone(db_fields)
                 self.assertEqual(len(db_fields), 16)
@@ -57,5 +57,17 @@ class test_propertyfinder(unittest.TestCase):
                 db_fields = propertyfinder._map_db_fields(pf_property)
                 self.assertIsNone(db_fields.get("latitude"))
 
+    def test_save(self):
+        database_util.init_database()
+        database_util.execute_insert_statement('delete from propertyfinder')
+        with open("test_data/propertyfinder.html", "r") as test_file:
+            property_data = propertyfinder._extract_data(test_file.read())
+            property_data = propertyfinder._filter_out_non_properties(property_data)
+            self.assertIsNotNone(property_data)
+            if property_data is not None: #boilerplate
+                self.assertEqual(len(property_data), 24)
+                saved_elements = propertyfinder._save(property_data)
+                self.assertEqual(saved_elements, 24)
+                saved_elements = propertyfinder._save(property_data)
+                self.assertEqual(saved_elements, 0)
 
-        

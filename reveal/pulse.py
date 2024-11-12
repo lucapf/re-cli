@@ -2,7 +2,22 @@ import csv
 import os
 from sqlite3.dbapi2 import Connection
 from typing import List, Optional
+from datetime import datetime
+import requests
 from reveal import logging,database_util, util
+
+pulse_transactions_csv_url = "https://www.dubaipulse.gov.ae/dataset/3b25a6f5-9077-49d7-8a1e-bc6d5dea88fd/resource/a37511b0-ea36-485d-bccd-2d6cb24507e7/download/transactions.csv"
+transaction_file_name = f"transactions_{datetime.now().strftime('%Y-%m-%d')}.csv"
+
+def download_transaction() -> str|None:
+    response = requests.get(pulse_transactions_csv_url)
+    if response.status_code == 200:
+        with open(transaction_file_name, "w") as transaction_file:
+            transaction_file.write(response.text)
+            return transaction_file_name
+    return None
+
+ 
 
 def load(transaction_file_path: str) -> Optional[List[dict]]:
     '''

@@ -23,8 +23,12 @@ def get_ads():
         if json_data is None:
             logging.warn("no data")
             break
-        if __save(json_data):
+        json_data = _filter_out_non_properties(json_data)
+        if json_data is None:
+            continue
+        if _save(json_data) == 0:
             logging.info("completed")
+            break
 
 def __get_ads( page_number: int) -> Optional[str]:
         url = f"https://www.propertyfinder.ae/en/search?l=1&c=1&fu=0&ob=nd&page={page_number}"  # newest
@@ -36,22 +40,29 @@ def __get_ads( page_number: int) -> Optional[str]:
         else:
             return response.text
 
-def _extract_data(html_content: str) ->Optional[dict]:
+def _extract_data(html_content: str) ->Optional[list[dict]]:
+    '''
+    list of property objects from the html content
+    '''
     extracted_data = re.search(get_property_pattern, html_content)
     if extracted_data is None:
         logging.warn(f"cannot extract property info. Pls check the file dump {util.dump_error_file(html_content, 'html')} ")
         return None
     extracted_data = extracted_data.group(1)
-    return json.loads(extracted_data)
+    json_data = json.loads(extracted_data)
+    if json_data.get("listings")  is None:
+        return None
+    else:
+        return json_data["listings"]
 
-def _filter_out_non_properties(property_data:dict|None) -> dict|None:
+def _filter_out_non_properties(property_data:list|None) -> list|None:
     if property_data is None:
         return None
-    pf_filtered = dict()
-    pf_filtered["listings"] = list()
-    for l in property_data["listings"]: 
+    pf_filtered = list()
+    for l in property_data:
         if l.get("listing_type") == "property":
-            pf_filtered["listings"].append(l)
+            if l["property"].get("property_type") != 'Land':
+                pf_filtered.append(l)
     return pf_filtered 
 
 def _map_db_fields(a: dict) -> dict:
@@ -60,9 +71,9 @@ def _map_db_fields(a: dict) -> dict:
      item["type"] =  a["property"]["property_type"]
      item["price"] =  int(a["property"]["price"]["value"])
      item["size"] =  int(a["property"]["size"]["value"])
-     item["bedrooms"] =  int(a["property"]["bedrooms"])
-     item["bathrooms"] =  int(a["property"]["bathrooms"])
-     item["price_per_sqft bathrooms"] =float(item["price"] / item["size"])
+     item["bedrooms"] =  a["property"]["bedrooms"]
+     item["bathrooms"] =  a["property"]["bathrooms"]
+     item["price_per_sqft"] = float(item["price"] / item["size"])
      for l in a["property"]["location_tree"]:
          key = str(l["type"]).lower()
          value = l["name"]
@@ -77,24 +88,24 @@ def _map_db_fields(a: dict) -> dict:
      item["url"] =  a["property"]["share_url"]
      return item
      
-def __save(ads:dict) -> int:
+def _save(ads:list) -> int:
     '''
     save data into the propertyfinder table.
     Return the number added elements
     '''
-    insert_template = "insert into propertyfinder ({columns}) values ({values})"
+    insert_template = "insert into propertyfinder ({columns}) values ({values}) on conflict do nothing"
     conn = database_util.get_connection() 
-    existing_items = database_util.fetch( \
-            "select count(*) from propertyfinder", None, None, conn)
+    existing_items = database_util.fetchone( \
+            "select count(*) from propertyfinder", None, conn)[0]
     for a in ads:
         ads_summary = _map_db_fields(a)
         sql_insert=insert_template.format(
                 columns = ','.join(ads_summary.keys()), 
                 values= ','.join(["?"]*len(ads_summary.keys())))
+        logging.debug(f"insert statement: {sql_insert} -- values: {ads_summary.values()}")
         database_util.execute_insert_statement(sql_insert,tuple(ads_summary.values()), conn ) 
-    return False
+    conn.commit()
 
-
-
-
-       
+    new_items = database_util.fetchone( \
+            "select count(*) from propertyfinder", None, conn)[0]
+    return new_items - existing_items
