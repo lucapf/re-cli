@@ -19,43 +19,45 @@ def download_transaction() -> str|None:
 
  
 
-def load(transaction_file_path: str) -> Optional[List[dict]]:
+def load(transaction_file_path: str) -> int|None:
     '''
         read transactions from the dictionary
     '''
-    transaction_dictionary = list()
     if not os.path.exists(transaction_file_path):
         logging.err(f"path {transaction_file_path} does not exists")
         return None
     with open(transaction_file_path, "r") as pulse_transaction_file:
-        transaction_reader= csv.DictReader(pulse_transaction_file)
-        for entry in transaction_reader:
-            entry["instance_date"] = util.date_DMY_to_iso(entry["instance_date"])
-            transaction_dictionary.append(entry)
-    return transaction_dictionary
+        transaction_reader = csv.DictReader(pulse_transaction_file)
+        logging.info("CSV read")
+        return insert(transaction_reader)
 
-def insert(transactions: Optional[list[dict]]) -> int:
+def insert(transactions: Optional[csv.DictReader]) -> int:
     if transactions is None:
         logging.info("insert pulse transaction. No data provided.")
         return 0
-    ids = _map_transaction(transactions)
-    existing_ids_sql ="select transaction_id from pulse where transaction_id in ({seq})"
-    existing_ids = database_util.fetch( \
-            existing_ids_sql.format(seq=','.join(['?']*len(ids))), tuple(ids))
-    if len(ids) == len(existing_ids):
-        logging.info("all ids provided are already present")
-        return 0
-    con = database_util.get_connection()
+    before=database_util.fetchone("select count(*) from pulse")[0]
+    logging.info(f"existing elements {before}")
+    conn = database_util.get_connection()
+    cursor = conn.cursor()
+    counter = 0
+    sql_insert_statement = None
     for t in transactions:
-        if t["transaction_id"] not in existing_ids:
-            _insert_transaction(t, con)
-    con.commit()
-    return len(ids) - len(existing_ids)
+        if sql_insert_statement == None: 
+            sql_insert_statement = "insert into pulse ({columns}) values({values}) on conflict do nothing" \
+            .format(columns=','.join(t.keys()), values=','.join(['?']*len(t.keys())))
 
-def _insert_transaction(t:dict, conn: Connection):
-    sql_insert_statement = "insert into pulse ({columns}) values({values}) " \
-        .format(columns=','.join(t.keys()), values=','.join(['?']*len(t.keys())))
-    database_util.execute_insert_statement(sql_insert_statement, tuple(t.values()))
+        t["instance_date"] = util.date_DMY_to_iso(t["instance_date"])
+        counter +=1
+        cursor.execute(sql_insert_statement, tuple(t.values()))
+        if (counter % 10000 == 0):
+            logging.debug(f"commit {counter}")
+    logging.debug(f"completed {counter}")
+    conn.commit()
+    after =database_util.fetchone("select count(*) from pulse",None, conn)[0]
+    new_transactions = after - before
+    logging.info(f"{transaction_file_name} added {new_transactions} total: {new_transactions}")
+    return new_transactions
+
 
 
 def _map_transaction (transactions: list[dict]) ->list[int]:
