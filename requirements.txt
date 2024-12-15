@@ -6,3 +6,5 @@ python-dateutil
 loguru
 requests
 pytest
+psycopg
+python-dotenv

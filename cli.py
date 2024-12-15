@@ -3,10 +3,11 @@ from reveal import logging, propertyfinder, pulse
 
 
 if __name__ == "__main__":
-    propertyfinder.get_ads(10) 
-    logging.info("propertyfinder - download and process completed")
-    filename = pulse.download_transaction()
+    # propertyfinder.get_ads(10) 
+    # logging.info("propertyfinder - download and process completed")
+    # filename = pulse.download_transaction()
     # filename =  "transactions_2024-11-13.csv"
+    filename = "Transactions.csv"
     logging.info(f"transactions available in the file {filename}")
     if filename is not None:
         new_items= pulse.load(filename)

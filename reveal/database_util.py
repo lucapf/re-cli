@@ -1,16 +1,19 @@
-from sqlite3.dbapi2 import Connection
 from reveal import (logging, db_schema)
 from typing import Any, List, Optional, Set
 import hashlib
-import sqlite3
+import psycopg
+from psycopg import Connection
 
-
-migrations = "create table migrations(statement_sha text primary key)"
-database_file = "reveal.sqlite3"
+migrations = "create table dashboard.migrations(statement_sha text primary key)"
 
 def _connect():
     logging.debug("connect")
-    return sqlite3.connect(database_file)
+    conn = psycopg.connect(dbname="dashboard",
+                        host="127.0.0.1",
+                        user="dashboard",
+                        password="password",
+                        port="5432")
+    return conn 
 
 def get_connection():
     return _connect()
@@ -18,15 +21,20 @@ def get_connection():
 def init_database():
     with _connect() as conn:
         cursor = conn.cursor()
-        statement = "select name from sqlite_master where type='table' and name='migrations'"
-        if cursor.execute(statement).fetchone() == None:
+        statement = """
+                select tablename as name from pg_tables 
+                where schemaname='dashboard' and tablename='migrations'
+            """
+        cursor.execute(statement)
+        if cursor.fetchone() == None:
             logging.debug(f"migration table does not exists")
             cursor.execute(migrations)
         for s in db_schema.sql_statements:
             statement_sha  = hashlib.sha1(s.encode("UTF-8")).hexdigest()
             logging.debug(f"sha:{statement_sha} statement ${s} ")
             sql_query  = f"select statement_sha from migrations where statement_sha='{statement_sha}'"
-            if cursor.execute(sql_query).fetchone() is None:
+            cursor.execute(sql_query)
+            if cursor.fetchone() is None:
                 cursor.execute(s)
                 statement= f"insert into migrations (statement_sha) values ('{statement_sha}')"
                 cursor.execute(statement)
