@@ -7,7 +7,7 @@ from reveal import logging,database_util, util
 
 pulse_transactions_csv_url = "https://www.dubaipulse.gov.ae/dataset/3b25a6f5-9077-49d7-8a1e-bc6d5dea88fd/resource/a37511b0-ea36-485d-bccd-2d6cb24507e7/download/transactions.csv"
 transaction_file_name = f"transactions_{datetime.now().strftime('%Y-%m-%d')}.csv"
-columns = [
+COLUMNS = [
             'transaction_id', 
             'procedure_id', 
             'trans_group_id', 
@@ -110,7 +110,7 @@ def insert(transactions: Optional[csv.DictReader]) -> int:
         if (counter % 50000 == 0):
             logging.debug(f"processed {counter}")
     logging.debug(f"data ready")
-    sql_insert_statement = f"insert into pulse ({','.join(columns)}) values ({','.join(['%s']*len(columns))}) on conflict do nothing"
+    sql_insert_statement = f"insert into pulse ({','.join(COLUMNS)}) values ({','.join(['%s']*len(COLUMNS))}) on conflict do nothing"
     logging.debug(f"sqlstatement: {sql_insert_statement}")
     logging.debug(f"pulse: {len(pulse_transactions)}")
 
@@ -118,6 +118,14 @@ def insert(transactions: Optional[csv.DictReader]) -> int:
     conn.commit()
     logging.debug("completed!")
     after =database_util.fetchone("select count(*) from pulse",None, conn)[0]
+    sync_towers = """
+            insert into pulse_tower_mapping (pulse_master_project, building_name) 
+                    select master_project, building_name 
+                    from pulse 
+                    where master_project in (select distinct pulse_master_project from propertyfinder_pulse_area_mapping)
+            on conflict do nothing
+    """
+    database_util.execute_insert_statement(sync_towers, Non, conn)
     conn.close()
     new_transactions = after - before
     logging.info(f"{transaction_file_name} added {new_transactions} total: {new_transactions}")

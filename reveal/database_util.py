@@ -42,10 +42,19 @@ def init_database():
 
 def fetch(sqlStatement: str,values:Optional[tuple] = None, 
           size:Optional[int] = None , conn: Connection|None =  None) -> List[Any]:
-    if conn == None:
-        with _connect() as conn:
-            return __execute_sql_query(conn, sqlStatement, values)
+    connection = conn
+    if connection == None:
+        connection = _connect()
     return __execute_sql_query(conn, sqlStatement, values, size)
+
+def fetch_map(sqlStatement: str,values:Optional[dict] = None, 
+          conn: Connection|None =  None) -> List[Any]:
+    connection = conn
+    if connection == None:
+        connection = _connect()
+    cursor = connection.cursor()
+    cursor.execute(sqlStatement,values)
+    return cursor.fetchall() 
 
 def __execute_sql_query(conn:Connection, sqlStatement: str,
                         values: tuple | None   = None, size: int | None = None) -> List[Any]:
@@ -76,7 +85,8 @@ def fetchone ( sql_statement: str, values: tuple|None = None, \
         return __execute_sql_single_query(conn, sql_statement, values)
 
 
-def execute_insert_statement(sql_insert_template: str,values: Optional[tuple] = None,  conn: Optional[Connection] = None, do_commit: bool = True):
+def execute_insert_statement(sql_insert_template: str, values: Optional[tuple] = None,  
+                             conn: Optional[Connection] = None, do_commit: bool = True):
     if conn is None:
         conn = _connect()
     if values is None:

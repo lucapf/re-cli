@@ -1,8 +1,22 @@
 from datetime import datetime
+from difflib import SequenceMatcher
 import os
 
 
 dump_dir = "error_dumps"
+
+def sqft_to_mq(size: int) -> int:
+    """
+    sqft(size) -> mq
+    """
+    return int(size * 0.0929)
+
+
+def mq_to_sqft(size: float) -> int:
+    """
+    mq(size) -> sqft
+    """
+    return int(size / 0.0929)
 
 def nullsafe_to_float(content: str|None) -> float|None:
     if content is None:
@@ -40,6 +54,32 @@ def date_DMY_to_iso(instance_date:str) -> str:
     tokenized = instance_date.split("-")
     return f"{tokenized[2]}-{tokenized[1]}-{tokenized[0]}"
 
+def bedrooms_pulse_to_propertyfinder(pulse_bedrooms: str) -> str:
+    if pulse_bedrooms == 'Studio':
+        return "studio"
+    if pulse_bedrooms == '1 B/R' or pulse_bedrooms == 'Single Room':
+        return "1"
+    if pulse_bedrooms == '2 B/R':
+        return "2"
+    if pulse_bedrooms == '3 B/R':
+        return "3"
+    if pulse_bedrooms == '4 B/R':
+        return "4"
+    if pulse_bedrooms == '5 B/R':
+        return "5"
+    if pulse_bedrooms == '6 B/R':
+        return "6"
+    if pulse_bedrooms == 'PENTHOUSE':
+        return "7+"
+    return f"{pulse_bedrooms} Not Supported"    
 
+def bedrooms_propertyfinder_to_pulse(propertyfinder_rooms: str)  -> str:
+    if propertyfinder_rooms.isdigit():
+        return f"{propertyfinder_rooms} B/R"
+    if propertyfinder_rooms == "studio":
+        return "Studio"
+    if propertyfinder_rooms == "7+":
+        return "7 B/R"
+    return propertyfinder_rooms
 
-    
+   

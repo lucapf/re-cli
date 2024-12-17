@@ -29,36 +29,69 @@ create table if not exists pulse(
     meter_rent_price numeric(12,2)
 )""",
 """
-create table propertyfinder_areas(
-    area text primary key
-        )
-""",
-"""
 create table if not exists propertyfinder (
         id text primary key,
-        type text,
+        type varchar(15),
         price integer,
         size integer,
         bedrooms text,
-        bathrooms integer,
+        bathrooms varchar(2),
         price_per_sqft real,
-        city text,
-        community text,
-        subcommunity text,
+        city varchar(15),
+        community varchar(100),
+        subcommunity varchar(100),
         tower text,
-        location_slug text,
-        location_name text,
-        listed_date text,
-        url text,
-        price_history text,
-        file_path text,
-        score real,
+        location_slug varchar(200),
+        location_name varchar(100),
+        listed_date date,
+        url varchar(250),
+        price_history jsonb,
+        file_path varchar(250),
+        score numeric(6,3),
         user_discarded integer,
         description  text,
-        latitude real, 
-        longitude real
-
+        latitude numeric(18,16), 
+        longitude numeric(18,16) 
     )
+""",
+"""
+CREATE TABLE dashboard.propertyfinder_pulse_area_mapping (
+	"name" varchar NOT NULL,
+	pf_community varchar(100) NOT NULL,
+	pulse_master_project varchar(50) NOT NULL,
+	CONSTRAINT propertyfinder_pulse_area_mapping_pk PRIMARY KEY (pf_community),
+	CONSTRAINT propertyfinder_pulse_area_mapping_unique UNIQUE ("name")
+);
+COMMENT ON TABLE dashboard.propertyfinder_pulse_area_mapping IS 'map propertyfinder and pulse areas (JLT, Dubai Marina, JVC...)';
+
+-- Column comments
+
+COMMENT ON COLUMN dashboard.propertyfinder_pulse_area_mapping."name" IS 'area name (default commintiry by propertyfinder)';
+
+""",
+"""
+CREATE TABLE dashboard.propertyfinder_tower_mapping (
+	community varchar(100) NOT NULL,
+	tower varchar(150) NULL,
+	CONSTRAINT propertyfinder_pulse_tower_mapping_pk PRIMARY KEY (community)
+)
+""",
+"""
+CREATE TABLE dashboard.pulse_tower_mapping (
+	pulse_master_project varchar(50) NOT NULL,
+	building_name varchar(100) NULL,
+	CONSTRAINT pulse_tower_mapping_pk PRIMARY KEY (pulse_master_project)
+)
+""",
+"""
+insert into propertyfinder_pulse_area_mapping (name, pf_community, pulse_master_project)
+        values ('Jumeirah Lake Towers','Jumeirah Lake Towers','Jumeirah Lakes Towers') on conflict do nothing;
+insert into propertyfinder_pulse_area_mapping (name, pf_community, pulse_master_project)
+        values ('Dubai Marina','Dubai Marina','Dubai Marina') on conflict do nothing;
+insert into propertyfinder_pulse_area_mapping (name, pf_community, pulse_master_project)
+        values ('Jumeirah Village Circle','Jumeirah Village Circle','Jumeirah Village Circle') on conflict do nothing;
+insert into propertyfinder_pulse_area_mapping (name, pf_community, pulse_master_project)
+        values ('Al Furjan','Al Furjan','Al Furjan') on conflict do nothing;  
 """
 
 ]

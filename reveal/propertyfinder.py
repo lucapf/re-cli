@@ -1,14 +1,16 @@
 from reveal import ( database_util, logging, util)
 import requests
+from requests.exceptions import ConnectionError
 import re
 import json
+from psycopg  import Connection
 from typing import Optional 
+import time
 
 
 headers = {
-
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-    }
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" 
+          }
 get_property_pattern = '"searchResult":(.*),"_nextI18Next"'
 get_property_detail_pattern = '"__NEXT_DATA__".*>(.*)</script><div id="__next">'
 
@@ -20,7 +22,7 @@ def get_ads(max_pages: int = 300) -> int:
         if raw_data is None:
             logging.warn("wrong status code, exit")
             break
-        json_data = _extract_data(raw_data)
+        json_data = _extract_data(raw_data, current_page)
         if json_data is None:
             logging.warn(f"{current_page} no data - abort")
             break
@@ -30,22 +32,29 @@ def get_ads(max_pages: int = 300) -> int:
             continue
         page_added_items = _save(json_data) 
         new_items += page_added_items
-        if page_added_items == 0:
+        if page_added_items == 0 and current_page != 2: # skip page #2 due strange issue in Proprtyfinder 
             logging.info(f"all fetched data already present  - ingestion completed addded {new_items} items")
             return new_items 
+        _sync()
     return new_items
 
 def __get_ads( page_number: int) -> Optional[str]:
         url = f"https://www.propertyfinder.ae/en/search?l=1&c=1&fu=0&ob=nd&page={page_number}"  # newest
-        response = requests.get(url, headers=headers)
-        logging.info(f"response status_code: {response.status_code}")
+        try: 
+            response = requests.get(url, headers=headers)
+        except ConnectionError:
+            logging.err("connection error occurred, waiting and retry")
+            time.sleep(2)
+            response = requests.get(url, headers=headers)
+            
+        logging.info(f"request: {url} - response status_code: {response.status_code}")
         if response.status_code != 200:
             logging.warn(f"wrong status code {response.status_code} page {page_number}  url {url} content {util.dump_error_file(response.text, 'html')} ")
             return None 
         else:
             return response.text
 
-def _extract_data(html_content: str) ->Optional[list[dict]]:
+def _extract_data(html_content: str, page_number: int) ->Optional[list[dict]]:
     '''
     list of property objects from the html content
     '''
@@ -55,6 +64,8 @@ def _extract_data(html_content: str) ->Optional[list[dict]]:
         return None
     extracted_data = extracted_data.group(1)
     json_data = json.loads(extracted_data)
+    # with open(f"ads_{page_number}.json", "w") as dump_file:
+    #     dump_file.write(json.dumps(json_data))
     if json_data.get("listings")  is None:
         return None
     else:
@@ -93,6 +104,28 @@ def _map_db_fields(a: dict) -> dict:
      item["url"] =  a["property"]["share_url"]
      return item
      
+def clean():
+    database_util.execute_insert_statement('delete from propertyfinder_tower_mapping')
+    database_util.execute_insert_statement('delete from propertyfinder')
+
+def _sync(conn: Connection| None = None):
+    connection = conn
+    if connection is None:
+        connection = database_util.get_connection()
+    sync_towers="""
+        insert into propertyfinder_tower_mapping (community, tower) 
+            select distinct community, tower 
+            from propertyfinder 
+            where community in (select pf_community from propertyfinder_pulse_area_mapping)
+            on conflict do nothing
+    """
+    database_util.execute_insert_statement(sync_towers, None, connection)
+    logging.debug("propertyfinder tower mapping synced")
+    if conn is None:
+        connection.commit()
+        connection.close()
+
+
 def _save(ads:list) -> int:
     '''
     save data into the propertyfinder table.
@@ -106,11 +139,13 @@ def _save(ads:list) -> int:
         ads_summary = _map_db_fields(a)
         sql_insert=insert_template.format(
                 columns = ','.join(ads_summary.keys()), 
-                values= ','.join(["?"]*len(ads_summary.keys())))
-        logging.debug(f"insert statement: {sql_insert} -- values: {ads_summary.values()}")
+                values= ','.join(["%s"]*len(ads_summary.keys())))
+        # logging.debug(f"insert statement: {sql_insert} -- values: {ads_summary.values()}")
         database_util.execute_insert_statement(sql_insert,tuple(ads_summary.values()), conn ) 
     conn.commit()
-
-    new_items = database_util.fetchone( \
+    then_items = database_util.fetchone( \
             "select count(*) from propertyfinder", None, conn)[0]
-    return new_items - existing_items
+    added_items = then_items - existing_items
+    conn.close()
+    logging.debug(f"existing: {existing_items}, then: {then_items} added items: {added_items}")
+    return added_items 
