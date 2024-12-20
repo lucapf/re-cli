@@ -1,6 +1,7 @@
-from datetime import datetime
+from datetime import datetime, date
 from difflib import SequenceMatcher
 import os
+import json
 
 
 dump_dir = "error_dumps"
@@ -50,6 +51,9 @@ def dump_error_file(content: str, extension: str) -> str:
         dump_file.write(content)
     return dump_file_path 
 
+def is_empty_list(l: list):
+    return l is None or len(l) == 0
+
 def date_DMY_to_iso(instance_date:str) -> str:
     tokenized = instance_date.split("-")
     return f"{tokenized[2]}-{tokenized[1]}-{tokenized[0]}"
@@ -82,4 +86,5 @@ def bedrooms_propertyfinder_to_pulse(propertyfinder_rooms: str)  -> str:
         return "7 B/R"
     return propertyfinder_rooms
 
-   
+  
+

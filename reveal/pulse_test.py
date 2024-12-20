@@ -1,5 +1,10 @@
 import unittest
-from reveal import database_util, pulse
+from reveal import database_util, pulse 
+from reveal.report_dao import ComplexEncoder
+from reveal.report_dao import PerTypeReport, PropertyReport
+import logging
+import json
+
 
 # transactions_test_data = "test_data/Transactions.csv"
 transactions_test_data = "Transactions.csv"
@@ -30,3 +35,15 @@ class TestPulse(unittest.TestCase):
         new_items_count = pulse.insert(data)
         self.assertEqual(new_items_count,0)
 
+    def test_PerTypeReport_to_json(self):
+        logging.basicConfig(level = logging.DEBUG)
+        p  = PerTypeReport()
+        p.bedrooms = "1"
+        p.num_ads = 3
+        a = PropertyReport()
+        a.community = "my community"
+        a.tower = "tower"
+        p.ads.append(a)
+        logging.info(json.dumps(p.to_json(), cls=ComplexEncoder, indent=4))
+        # self.assertEqual({"bedrooms": "1", "num_ads": 3} ,json.dumps(p.to_dict(), cls=ComplexEncoder))
+        

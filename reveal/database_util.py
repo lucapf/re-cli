@@ -45,7 +45,7 @@ def fetch(sqlStatement: str,values:Optional[tuple] = None,
     connection = conn
     if connection == None:
         connection = _connect()
-    return __execute_sql_query(conn, sqlStatement, values, size)
+    return __execute_sql_query(connection, sqlStatement, values, size)
 
 def fetch_map(sqlStatement: str,values:Optional[dict] = None, 
           conn: Connection|None =  None) -> List[Any]:
