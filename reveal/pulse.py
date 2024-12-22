@@ -115,17 +115,18 @@ def insert(transactions: Optional[csv.DictReader]) -> int:
     logging.debug(f"pulse: {len(pulse_transactions)}")
 
     cursor.executemany(sql_insert_statement,pulse_transactions)
+    database_util.execute_insert_statement("update pulse set building_name = null where replace(building_name,' ','')=''", None, conn)
     conn.commit()
     logging.debug("completed!")
     after =database_util.fetchone("select count(*) from pulse",None, conn)[0]
     sync_towers = """
-            insert into pulse_tower_mapping (pulse_master_project, building_name) 
+            insert into pulse_tower_mapping (master_project, building_name) 
                     select master_project, building_name 
                     from pulse 
-                    where master_project in (select distinct pulse_master_project from propertyfinder_pulse_area_mapping)
+                    where master_project in (select distinct pulse_master_project from propertyfinder_pulse_area_mapping) and building_name is not null
             on conflict do nothing
     """
-    database_util.execute_insert_statement(sync_towers, Non, conn)
+    database_util.execute_insert_statement(sync_towers, None, conn)
     conn.close()
     new_transactions = after - before
     logging.info(f"{transaction_file_name} added {new_transactions} total: {new_transactions}")
