@@ -1,5 +1,6 @@
 from loguru import logger
 
+
 def info(message: str):
     logger.info(message)
 
@@ -11,7 +12,3 @@ def warn( message: str):
 
 def err( message: str):
     logger.error(message)
-
-
-def __init__():
-    logger.add("log_{time}.log")

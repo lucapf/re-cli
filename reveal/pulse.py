@@ -31,9 +31,12 @@ COLUMNS = [
             'has_parking', 
             'procedure_area', 
             'actual_worth', 
+            'size_sqft',
+            'price_sqft',
             'meter_sale_price',
             'rent_value', 
-            'meter_rent_price'
+            'meter_rent_price',
+            'bedrooms'
           ]
 
 def download_transaction() -> str|None:
@@ -77,35 +80,57 @@ def insert(transactions: Optional[csv.DictReader]) -> int:
     sql_insert_statement = None
     pulse_transactions: List[tuple]  = []
     for t in transactions:
-        if sql_insert_statement == None: 
-           pulse_transactions.append(( 
-                str(t['transaction_id']), 
-                util.nullsafe_to_int(t['procedure_id']),
-                util.nullsafe_to_int(t['trans_group_id']),
-                str(t['trans_group_en']),
-                t['procedure_name_en'],
-                util.date_DMY_to_iso(t["instance_date"]),
-                util.nullsafe_to_int(t['property_type_id']), 
-                t['property_type_en'],
-                util.nullsafe_to_int(t['property_sub_type_id']), 
-                t['property_sub_type_en'], 
-                t['property_usage_en'],
-                util.nullsafe_to_int(t['reg_type_id']),
-                t['reg_type_en'],
-                util.nullsafe_to_int(t['area_id']),
-                t['area_name_en'],
-                t['building_name_en'],
-                util.nullsafe_to_int(t['project_number']),
-                t['project_name_en'],
-                t['master_project_en'],
-                t['rooms_en'],
-                util.nullsafe_to_int(t['has_parking']),
-                util.nullsafe_to_float(t['procedure_area']),
-                util.nullsafe_to_float(t['actual_worth']),
-                util.nullsafe_to_float(t['meter_sale_price']),
-                util.nullsafe_to_float(t['rent_value']),
-                util.nullsafe_to_float(t['meter_rent_price']),
-                ))
+#        if not t['procedure_area'].isdigit():
+#            logging.debug(f"procedure area format ${t['procedure_area']} not valid, skip ")
+#            continue
+#        if not t['actual_worth'].isdigit():
+#            logging.debug(f"price format ${t['actual_worth']} not valid, skip ")
+#            continue
+
+        procedure_area = float(t['procedure_area'])
+        price = float(t['actual_worth'])
+        if t['procedure_name_en'] != "Sell":
+            continue
+        if procedure_area < 10:
+            logging.warn(f"procedure area value not valid {procedure_area}")
+            continue
+        size_sqft =  util.mq_to_sqft(procedure_area)
+        if size_sqft == 0.0 or size_sqft is None:
+            logging.warn(f"size_sqft = 0! procedure area {procedure_area} transaction_id: {t['transaction_id']}") 
+            continue
+        price_sqft= int(price / size_sqft )
+        #logging.debug(f"SQFT  price_sqft: {price_sqft} size_sqft: {size_sqft} original price: {price}")
+        pulse_transactions.append(( 
+            str(t['transaction_id']), 
+            util.nullsafe_to_int(t['procedure_id']),
+            util.nullsafe_to_int(t['trans_group_id']),
+            str(t['trans_group_en']),
+            t['procedure_name_en'],
+            util.date_DMY_to_iso(t["instance_date"]),
+            util.nullsafe_to_int(t['property_type_id']), 
+            t['property_type_en'],
+            util.nullsafe_to_int(t['property_sub_type_id']), 
+            t['property_sub_type_en'], 
+            t['property_usage_en'],
+            util.nullsafe_to_int(t['reg_type_id']),
+            t['reg_type_en'],
+            util.nullsafe_to_int(t['area_id']),
+            t['area_name_en'],
+            t['building_name_en'],
+            util.nullsafe_to_int(t['project_number']),
+            t['project_name_en'],
+            t['master_project_en'],
+            t['rooms_en'],
+            util.nullsafe_to_int(t['has_parking']),
+            procedure_area,
+            price,
+            size_sqft,
+            price_sqft,
+            util.nullsafe_to_float(t['meter_sale_price']),
+            util.nullsafe_to_float(t['rent_value']),
+            util.nullsafe_to_float(t['meter_rent_price']),
+            util.bedrooms_pulse_to_propertyfinder(t['rooms_en']) 
+            ))
         counter +=1
         if (counter % 50000 == 0):
             logging.debug(f"processed {counter}")

@@ -9,44 +9,21 @@ from string import Template
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 import json
-import logging
+import time
 
 
 
 class PulseTransaction(object):
 
     def __init__(self, data: tuple, keys: List[str] = pulse.COLUMNS):
-        self.transaction_id = data[0]
-        self.procedure_id  = data[1]
-        self.trans_group_id = data[2]
-        self.trans_group = data[3]
-        self.procedure_name = data[4]
-        self.instance_date = data[5]
-        self.property_type_id = data[6]
-        self.property_type = data[7]
-        self.property_sub_type_id = data[8]
-        self.property_sub_type = data[9]
-        self.property_usage = data[10]
-        self.reg_type_id = data[11]
-        self.reg_type = data[12]
-        self.area_id = data[13] 
-        self.area_name = data[14]
-        self.building_name = data[15]
-        self.project_number = data[16]
-        self.project_name = data[17]
-        self.master_project = data[18]
-        self.rooms = data[19]
-        self.has_parking = data[20]
-        self.procedure_area = float(data[21])
-        self.actual_worth  = float(data[22])
-        self.meter_sale_price = data[23]
-        self.rent_value = data[24]
-        self.meter_rent_price = data[25]
-        self.rooms = util.bedrooms_pulse_to_propertyfinder(self.rooms)
-        self.price =self.actual_worth
-        self.procedure_area_sqft = util.mq_to_sqft(self.procedure_area)
-        self.size = float(self.procedure_area_sqft)
-        self.price_sqft = self.actual_worth / self.procedure_area_sqft
+        for i in range(len(pulse.COLUMNS)):
+            column_name = pulse.COLUMNS[i]
+            self.__dict__[column_name] = data[i]
+        self.berooms = util.bedrooms_pulse_to_propertyfinder(self.rooms)
+        self.procedure_area = int(self.procedure_area)
+        self.actual_worth = float(self.actual_worth)
+        self.size_sqft = int(self.size_sqft)
+        self.price_sqft = float(self.price_sqft)
 
     def to_dict(self) -> dict:
         return self.__dict__
@@ -71,8 +48,11 @@ class Report(object):
         self.avg_size: float = 0.0
         self.avg_price_sqft: float = 0.0
         self.by_bedrooms_report: Dict[str,PerTypeReport] = dict()
-
-
+        self.created_at: datetime 
+        self.min_score: int = 0
+        self.spike_threshold_perc: int = 0
+        self.max_price: int = 0            
+        self.sales_delta_perc: int = 0
 
 class PerTypeReport(object):
     def __init__(self):
@@ -106,6 +86,7 @@ class PerPeriodStatistics(object):
         self.avg_price_sqft: int
         self.min_price_sqft: int
         self.current_vs_avg_perc: int
+        self.sale_transaction: int
 
     def to_dict(self):
         return self.__dict__.copy()
@@ -115,7 +96,7 @@ class PropertyReport(object):
     db_columns =  [
                    "id","community", "tower", "url",
                    "location_name","size", 
-                   "price","price_per_sqft","listed_date",
+                   "price","price_sqft","listed_date",
                    "type", "bathrooms", 
                    "bedrooms","latitude", "longitude" 
                   ]
@@ -221,7 +202,7 @@ def get_ads(community: str, config: Config) -> (List[PropertyReport], Connection
         p  = PropertyReport()
         for i in range(len(PropertyReport.db_columns)):
             column_name = PropertyReport.db_columns[i] \
-                               if PropertyReport.db_columns[i]!= "price_per_sqft" \
+                               if PropertyReport.db_columns[i]!= "price_sqft" \
                                else "price_sqft"
             p.__dict__[column_name] = r[i]
         propertyReportList.append(p)
@@ -232,26 +213,25 @@ def get_ads(community: str, config: Config) -> (List[PropertyReport], Connection
 
 
 def transaction_by_tower(community: str, tower :str, conn, conf: Config) ->List[PulseTransaction] | None:
-    max_sales_days = conf.report_max_sales_days()
-    from_date = datetime.now() - timedelta(max_sales_days) 
-    
     '''
     decode propertyfinder building address to pulse and retrieve transaction
     '''
+    max_sales_days = conf.report_max_sales_days()
+    from_date = datetime.now() - timedelta(max_sales_days) 
+    
     sql=Template("""
         select 
             $columns
         from 
             pulse p join propertyfinder_pulse_mapping pfpm on  
                 (
-                    pfpm.pulse_master_project = p.master_project and
-                    pfpm.pulse_building_name = p.building_name
+                    pfpm.pulse_master_project = p.master_project
+                and pfpm.pulse_building_name = p.building_name
                 )
         where 
                 pfpm.propertyfinder_community = %s  
             and pfpm.propertyfinder_tower = %s 
             and procedure_name = 'Sell'
-            and p.trans_group='Sales' 
             and p.trans_group='Sales' 
             and p.instance_date > %s
             and p.property_type='Unit'
@@ -261,74 +241,133 @@ def transaction_by_tower(community: str, tower :str, conn, conf: Config) ->List[
     data_tuple = (community, tower, from_date)
     transaction_row = database_util.fetch(sql,data_tuple,None, conn)
     transaction: List[PulseTransaction] = list()
-    logging.debug(f"sql: {sql}")
+    # logging.debug(f"sql: {sql}")
     for row in transaction_row:
         transaction.append(PulseTransaction(row, pulse.COLUMNS))
-    logging.debug(f" community {community} - tower: {tower} - fetched: {len(transaction)} transaction") 
-    # for t in transaction:
-    #     logging.debug(t)
-    #
+    # logging.debug(f" community {community} - tower: {tower} - fetched: {len(transaction)} transaction") 
     return transaction 
 
-def _save_per_period_ad(a: PropertyReport, conn):
+def _save_ad_sale(a: PropertyReport, conn):
     if a.tower_sales is None:
         return
     for p in a.tower_sales:
+        __save_ad_sale_data(a, p, False, conn)
+    for p in a.spikes:
+        __save_ad_sale_data(a, p, True, conn)
+
+def __save_ad_sale_data(a:PropertyReport,p: PulseTransaction, is_spike: bool, conn):
         database_util.execute_insert_statement("""
            insert into report_propertyfinder (
                                               propertyfinder_id, 
                                               pulse_transaction_id, 
                                               score, 
-                                              community
+                                              community,
+                                              is_spike
                                               )
-                                      values (%s,%s, %s, %s) 
+                                      values (%s,%s, %s, %s, %s) 
+            on conflict (propertyfinder_id, pulse_transaction_id)  do update set score=%s, is_spike=%s
                                                """, 
-           (a.id, p.transaction_id,a.score, a.community ), conn)
+           (a.id, p.transaction_id,a.score, a.community, is_spike, a.score, is_spike), conn)
 
      
 def _save_per_period_statistics(a: PropertyReport,p: PerPeriodStatistics, conn):
     if p is None: 
-
         return
-    values = ( a.id, 
-               p.interval,
-               p.max_price,
-               p.avg_price,
-               p.min_price,
-               p.max_price_sqft,
-               p.avg_price_sqft,
-               p.min_price_sqft,
-               p.current_vs_avg_perc,
-               a.community,
-               a.price_sqft
-             )
+
+    values = {
+       "id": a.id, 
+       "interval": p.interval,
+       "max_price": p.max_price,
+       "avg_price": p.avg_price,
+       "min_price": p.min_price,
+       "max_price_sqft": p.max_price_sqft,
+       "avg_price_sqft": p.avg_price_sqft,
+       "min_price_sqft": p.min_price_sqft,
+       "current_vs_avg_price": p.current_vs_avg_perc,
+       "community": a.community,
+       "ad_price_sqft": a.price_sqft,
+       "sale_transaction": p.sale_transaction
+     }
     database_util.execute_insert_statement("""
         insert into report_per_period_statistics(
-            propertyfinder_id, 
+            propertyfinder_id,
             interval, 
             max_price,
-            avg_price,
+            avg_price, 
             min_price,  
             max_price_sqft, 
             avg_price_sqft, 
-            min_price_sqft,
+            min_price_sqft, 
             current_vs_avg_perc,
-            community,
-            ad_price_sqft
+            community, 
+            ad_price_sqft, 
+            sale_transaction
             )
-        values ( %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s ) 
-                                          """, values, conn) 
+        values ( %(id)s, 
+                %(interval)s,
+                %(max_price)s,
+                %(avg_price)s, 
+                %(min_price)s, 
+                %(max_price_sqft)s, 
+                %(avg_price_sqft)s, 
+                %(min_price_sqft)s,
+                %(current_vs_avg_price)s, 
+                %(community)s, 
+                %(ad_price_sqft)s,
+                %(sale_transaction)s 
+        ) on conflict (propertyfinder_id,"interval") 
+        do update set 
+            max_price =%(max_price)s, 
+            avg_price =%(avg_price)s, 
+            min_price =%(min_price)s,
+            max_price_sqft=%(max_price_sqft)s, 
+            avg_price_sqft= %(avg_price_sqft)s,
+            min_price_sqft = %(min_price_sqft)s, 
+            current_vs_avg_perc= %(current_vs_avg_price)s,
+            ad_price_sqft=%(ad_price_sqft)s, 
+            sale_transaction = %(sale_transaction)s
+          """, values, conn) 
 
 
 def save_report(p: Report, conn:Connection):
+    configuration_entries = database_util.fetch("""
+        select int_value, key from configuration 
+        where key in (  'report.spike_threshold_perc', 
+                        'report.relevant_properties_min_score',
+                        'report.max_price', 'report.delta_perc'
+                     ) """,None ,None, conn)
+
+    values = {
+                "community": p.community, 
+                "num_ads": p.num_ads, 
+                "avg_size": p.avg_size, 
+                "created_at": date.fromtimestamp(time.time()),
+                "avg_price_sqft": p.avg_price_sqft, 
+                "min_score": p.min_score,
+                "spike_threshold_perc": p.spike_threshold_perc, 
+                "max_price": p.max_price,
+                "sales_delta_perc": p.sales_delta_perc,
+            }
+    for c in configuration_entries:
+        if c[1] == 'report.spike_threshold_perc':
+            values['spike_threshold_perc'] = c[0]
+        if c[1] == 'report.relevant_properties_min_score':
+            values['min_score'] = c[0]
+        if c[1] == 'report.max_price':
+            values['max_price'] = c[0]
+        if c[1] == 'report.delta_perc':
+            values['sales_delta_perc']= c[0]
+
     database_util.execute_insert_statement("""
-        insert into report (community, num_ads, avg_size, avg_price_sqft)
-                    values (%s, %s, %s,%s) 
-                                           """, 
-        (p.community, p.num_ads, p.avg_size, p.avg_price_sqft),conn)
+        insert into report (community, num_ads, avg_size, created_at , avg_price_sqft,min_score, spike_threshold_perc, max_price, sales_delta_perc)
+                    values (%(community)s, %(num_ads)s, %(avg_size)s, %(created_at)s, %(avg_price_sqft)s, %(min_score)s, %(spike_threshold_perc)s, %(max_price)s, %(sales_delta_perc)s ) 
+        on conflict (community) 
+       do update set num_ads = %(num_ads)s, avg_size = %(avg_size)s, created_at = %(created_at)s, avg_price_sqft = %(avg_price_sqft)s, 
+                     min_score=%(min_score)s, spike_threshold_perc = %(spike_threshold_perc)s, max_price=%(max_price)s, 
+                     sales_delta_perc=%(sales_delta_perc)s""", values,conn)
     for v in p.by_bedrooms_report.values(): 
         for a in v.ads:
-            _save_per_period_ad(a, conn)
+            _save_ad_sale(a, conn)
             for p in a.per_period_statistics.values():
                 _save_per_period_statistics(a, p, conn)
                
@@ -337,6 +376,3 @@ def clean_report():
     database_util.execute_insert_statement("delete from report_per_period_statistics", None, conn)
     database_util.execute_insert_statement("delete from report_propertyfinder", None, conn)
     database_util.execute_insert_statement("delete from report")
-
-
-

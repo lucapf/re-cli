@@ -89,7 +89,7 @@ def _map_db_fields(a: dict) -> dict:
      item["size"] =  int(a["property"]["size"]["value"])
      item["bedrooms"] =  a["property"]["bedrooms"]
      item["bathrooms"] =  a["property"]["bathrooms"]
-     item["price_per_sqft"] = float(item["price"] / item["size"])
+     item["price_sqft"] = float(item["price"] / item["size"])
      for l in a["property"]["location_tree"]:
          key = str(l["type"]).lower()
          value = l["name"]
