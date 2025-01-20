@@ -51,20 +51,30 @@ def _score(sample_i: str, candidates: List[str]|None) -> List[Tuple[float, str]]
         #     common_chars +=b.size
         #
 
+def remove_link(community: str):
+    community_tuple = community,
+    database_util.execute_insert_statement (
+        'delete from propertyfinder_pulse_mapping where propertyfinder_community=%s',
+        community_tuple, None, True)
+    
 
-def match(interactive: bool = False):
+def match(community: str) :
     '''
-        match areas and store into propertufinder_pulse_mapping.
+        match areas and store into propertyfinder_pulse_mapping.
         No interactive mode
     '''
     conn = database_util.get_connection()
-    sql = 'select name, pf_community, pulse_master_project from propertyfinder_pulse_area_mapping'
     sql_insert="""
             insert into propertyfinder_pulse_mapping 
                 (propertyfinder_community, propertyfinder_tower, pulse_master_project, pulse_building_name) 
             values(%s,%s, %s, %s) on conflict do nothing
         """
-    for areas in database_util.fetch(sql, None, None, conn):
+    sql = '''
+            select name, pf_community, pulse_master_project 
+            from propertyfinder_pulse_area_mapping where pf_community=%s
+          '''
+    community_tuple  = community,
+    for areas in database_util.fetch(sql, community_tuple, None, conn):
         propertyfinder_buildings = __fetch_propertyfinder_buildings(areas[1], conn)
         pulse_buildings = __fetch_pulse_buildings(areas[2], conn)
 
