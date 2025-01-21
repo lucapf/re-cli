@@ -1,6 +1,6 @@
 from fastapi import FastAPI, status, Response
 from reveal.report_builder import BuildReport
-from reveal import property_match
+from reveal import property_match, pulse, logging, propertyfinder
 
 app = FastAPI()
 allowedCommunities = ["Dubai Marina", "Jumeirah Lake Towers", "Al Furjan", "Jumeirah Village Circle"]
@@ -41,4 +41,29 @@ def unlink_community(community, response: Response):
     property_match.match(community)
     return "done"
     
+@app.post("/pulse/", status_code=201)
+def download_and_process_pulse_data(response:Response):
+    '''
+        download the pulse sales transaction file and store them
+    '''
+    logging.info("start pulse data download")
+    filename = pulse.download_transaction()
+    logging.info("download completed!")
+    if filename is not None:
+        logging.info("pulse data downloaded ${filename} start processing")
+        new_items = pulse.load(filename)
+        return f"loaded ${new_items}"
+    else:
+        response.status_code = 500
+        return "download file error"
+
+@app.post("/propertyfinder/", status_code=201)
+def download_and_process_propertyfinder_ads(response: Response):
+    '''
+        download, parse and process propertyfinder ads
+    '''
+    propertyfinder.get_ads(300)
+
+
+
 

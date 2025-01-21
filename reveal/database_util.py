@@ -3,21 +3,26 @@ from typing import Any, List, Optional, Set
 import hashlib
 import psycopg
 from psycopg import Connection
-from dotenv import dotenv_values
+from dotenv import load_dotenv 
 from reveal import logging
+import os
 
 migrations = "create table dashboard.migrations(statement_sha text primary key)"
 
 def _connect():
-    config = dotenv_values(".env")
+    load_dotenv(".env")
+    database_name = os.getenv("DBNAME")
+    host = os.getenv("PG_HOST")
+    user = os.getenv("PG_USER")
+    password = os.getenv("PG_PASSWORD")
+    port = os.getenv("PG_PORT")
     
-    logging.info(config)
-    logging.debug("connect")
-    conn = psycopg.connect(dbname=config['DBNAME'],
-                        host=config['HOST'],
-                        user=config['USER'],
-                        password=config['PASSWORD'],
-                        port=config['PORT'])
+
+    conn = psycopg.connect(dbname=database_name,
+                        host=host,
+                        user=user,
+                        password=password,
+                        port=port)
     return conn 
 
 def get_connection():
