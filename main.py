@@ -58,7 +58,7 @@ def download_and_process_pulse_data(backgound_tasks: BackgroundTasks):
     '''
     job_execution = job.start('pulse-sync')
     backgound_tasks.add_task(_download_and_processPulse_data, job_execution)
-    return f"background task ({job_execution.id}) queued"
+    return job_execution.id
 
 
 def _download_and_processPulse_data(job_execution: JobExecution):
@@ -84,10 +84,11 @@ def download_and_process_propertyfinder_ads( backgound_tasks: BackgroundTasks, p
     '''
         download, parse and process propertyfinder ads
     '''
-    job_name = "process propertyfinder ads"
-    job_execution = job.start(job_name)
+
+    job_execution = job.start("get propertyfinder ads")
     backgound_tasks.add_task(propertyfinder.get_ads,pages, job_execution)
-    return f"job {job_name} - {job_execution.id} queued"
+
+    return job_execution.id
 
 
 

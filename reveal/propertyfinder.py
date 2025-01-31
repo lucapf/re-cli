@@ -17,28 +17,34 @@ get_property_detail_pattern = '"__NEXT_DATA__".*>(.*)</script><div id="__next">'
 
 def get_ads(max_pages: int, job_execution: JobExecution) -> int:
     new_items = 0
-    for current_page in range(1,max_pages):
-        job.progress(job_execution, f"process page {current_page}/ {max_pages}")
-        raw_data = __get_ads(current_page)
-        if raw_data is None:
-            job_execution.error("wrong status code, exit")
-            break
-        json_data = _extract_data(raw_data, current_page)
-        if json_data is None:
-            job_execution.error(f"{current_page} no data - abort")
-            break
-        json_data = _filter_out_non_properties(json_data)
-        if json_data is None:
-            job.progress(job_execution,f"{current_page} workable no data - continue")
-            continue
-        page_added_items = _save(json_data) 
-        new_items += page_added_items
-        if page_added_items == 0 and current_page != 2: # skip page #2 due strange issue in Proprtyfinder 
-            job.progress(job_execution,f"all fetched data already present  - ingestion completed addded {new_items} items")
-            return new_items 
-        job.progress(job_execution,"start sync")
-        _sync()
-        job.progress(job_execution,"completed")
+    try:
+        for current_page in range(1,max_pages):
+            job.progress(job_execution, f"process page {current_page}/ {max_pages}")
+            raw_data = __get_ads(current_page)
+            if raw_data is None:
+                job_execution.error("wrong status code, exit")
+                break
+            json_data = _extract_data(raw_data, current_page)
+            if json_data is None:
+                job_execution.error(f"{current_page} no data - abort")
+                break
+            json_data = _filter_out_non_properties(json_data)
+            if json_data is None:
+                job.progress(job_execution,f"{current_page} workable no data - continue")
+                continue
+            page_added_items = _save(json_data) 
+            new_items += page_added_items
+            if page_added_items == 0 and current_page != 2: # skip page #2 due strange issue in Proprtyfinder 
+                job.progress(job_execution,f"all fetched data already present  - ingestion completed addded {new_items} items")
+                return new_items 
+            job.progress(job_execution,"start sync")
+            _sync()
+            job_execution.success(f"execution complete, added {new_items} ads")
+    except Exception:
+        job_execution.error(Exception)
+    finally:
+        job.complete(job_execution)
+    
     return new_items
 
 def __get_ads( page_number: int) -> Optional[str]:
