@@ -11,7 +11,7 @@ allowedCommunities = ["Dubai Marina", "Jumeirah Lake Towers", "Al Furjan", "Jume
 def read_root( community: str, response: Response):
     if community not in allowedCommunities:
         response.status_code = status.HTTP_406_NOT_ACCEPTABLE
-        return f"allowed communities {allowedCommunities}"
+        return f"community: '{community}' not allowed available communities {allowedCommunities}"
     BuildReport().build_community_report(community)
     return "done"
 
@@ -90,9 +90,10 @@ def download_and_process_propertyfinder_ads( backgound_tasks: BackgroundTasks, p
 
     return job_execution.id
 
-
-
-
-
-
-
+@app.get("/be/job-execution/{job_id}", status_code=201)
+def get_status_by_job_id(job_id: int, response: Response):
+    job_status = job.get_status(job_id)
+    if job_status is None:
+        response.status_code = 403 
+        return f"not found"
+    return job_status[0]
