@@ -1,9 +1,8 @@
-from reveal import ( database_util, logging, util)
+from reveal import ( database_util, logging)
 from typing import List,Tuple
-from difflib import SequenceMatcher
 
 
-def __fetch_pulse_buildings(master_project: str, conn)->List[str]:
+def __fetch_pulse_buildings(master_project: str, conn)->List[str]|None:
     sql="""
         select building_name 
     from pulse_tower_mapping 
@@ -13,7 +12,7 @@ def __fetch_pulse_buildings(master_project: str, conn)->List[str]:
         """
     return __fetch(sql, master_project, conn)
 
-def __fetch_propertyfinder_buildings(community: str, conn)->List[str]:
+def __fetch_propertyfinder_buildings(community: str, conn)->List[str]|None:
     sql="""
         select tower 
         from propertyfinder_tower_mapping 
@@ -23,13 +22,12 @@ def __fetch_propertyfinder_buildings(community: str, conn)->List[str]:
         """
     return __fetch(sql, community, conn)
 
-def __fetch(sql:str, value:str, conn) -> List[str]:
+def __fetch(sql:str, value:str, conn) -> List[str]|None:
     value_tuple = value,
-    building_name = database_util.fetch(sql, value_tuple, None, conn);
+    building_name = database_util.fetch(sql, value_tuple, None, conn)
     if building_name is None or len(building_name) ==  0:
         return None
-    return list(filter(lambda y: y is not None, 
-                map(lambda x: str(x[0]) if len(x)>0 and x[0] !=''  else None,building_name )))
+    return list(filter(None, map(lambda x: str(x[0]) if len(x)>0 and x[0] !=''  else None,building_name )))
 
 def _score(sample_i: str, candidates: List[str]|None) -> List[Tuple[float, str]] | None:
     if candidates is None or sample_i == 'None' or sample_i == '': 
@@ -77,7 +75,8 @@ def match(community: str) :
     for areas in database_util.fetch(sql, community_tuple, None, conn):
         propertyfinder_buildings = __fetch_propertyfinder_buildings(areas[1], conn)
         pulse_buildings = __fetch_pulse_buildings(areas[2], conn)
-
+        if propertyfinder_buildings is None:
+            continue
         for pf_building in propertyfinder_buildings:
             candidates = _score(pf_building, pulse_buildings)
             if candidates is None:

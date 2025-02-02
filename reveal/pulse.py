@@ -2,6 +2,7 @@ import csv
 import os
 from typing import List, Optional
 from datetime import datetime
+from psycopg import sql
 import requests
 from reveal import logging,database_util, util
 
@@ -134,12 +135,12 @@ def insert(transactions: Optional[csv.DictReader]) -> int:
         counter +=1
         if (counter % 50000 == 0):
             logging.debug(f"processed {counter}")
-    logging.debug(f"data ready")
+    logging.debug("data ready")
     sql_insert_statement = f"insert into pulse ({','.join(COLUMNS)}) values ({','.join(['%s']*len(COLUMNS))}) on conflict do nothing"
     logging.debug(f"sqlstatement: {sql_insert_statement}")
     logging.debug(f"pulse: {len(pulse_transactions)}")
 
-    cursor.executemany(sql_insert_statement,pulse_transactions)
+    cursor.executemany(sql.SQL(sql_insert_statement),(pulse_transactions,))
     database_util.execute_insert_statement("update pulse set building_name = null where replace(building_name,' ','')=''", None, conn)
     conn.commit()
     logging.debug("completed!")

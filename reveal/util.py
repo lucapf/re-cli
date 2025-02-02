@@ -1,7 +1,5 @@
-from datetime import datetime, date
-from difflib import SequenceMatcher
+from datetime import datetime
 import os
-import json
 
 
 dump_dir = "error_dumps"
@@ -51,8 +49,8 @@ def dump_error_file(content: str, extension: str) -> str:
         dump_file.write(content)
     return dump_file_path 
 
-def is_empty_list(l: list):
-    return l is None or len(l) == 0
+def is_empty_list(lst: list):
+    return lst is None or len(lst) == 0
 
 def date_DMY_to_iso(instance_date:str) -> str:
     tokenized = instance_date.split("-")

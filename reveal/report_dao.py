@@ -1,9 +1,7 @@
-from reveal import (logging, db_schema)
-from typing import List,  Dict
+from reveal import (logging)
+from typing import List,  Dict, Tuple
 from reveal import pulse, database_util, util 
 from reveal.config import Config
-from dateutil import parser
-import psycopg
 from psycopg import Connection
 from string import Template
 from datetime import date, datetime, timedelta
@@ -15,10 +13,14 @@ import time
 
 class PulseTransaction(object):
 
-    def __init__(self, data: tuple, keys: List[str] = pulse.COLUMNS):
+    def __init__(self, data: tuple ):
+
+        self.instance_date: date 
+        self.transaction_id: str
+        self.rooms: str
         for i in range(len(pulse.COLUMNS)):
             column_name = pulse.COLUMNS[i]
-            self.__dict__[column_name] = data[i]
+            self.__dict__[column_name] =  data[i]
         self.berooms = util.bedrooms_pulse_to_propertyfinder(self.rooms)
         self.procedure_area = int(self.procedure_area)
         self.actual_worth = float(self.actual_worth)
@@ -60,6 +62,7 @@ class PerTypeReport(object):
         self.num_ads: int = 0
         self.avg_price_sqft: float = 0.0
         self.avg_size: float = 0.0
+        self.avg_size_sqft: float = 0.0
         self.ads: List[PropertyReport] = list()
 
     def to_json(self):
@@ -78,9 +81,9 @@ class PerTypeReport(object):
 class PerPeriodStatistics(object):
 
     def __init__(self):
-        self.inteval: int
+        self.interval: str 
         self.max_price: int
-        self.avg_price: int
+        self.avg_price: int 
         self.min_price: int
         self.max_price_sqft: int
         self.avg_price_sqft: int
@@ -117,9 +120,10 @@ class PropertyReport(object):
         self.bedrooms: str = ''
         self.latitude: float = 0.0
         self.longitude: float = 0.0
-        self.tower_sales: List[PulseTransaction] = list()
-        self.spikes: List[PulseTransaction] = list()
-        self.per_period_statistics = {"30": PerPeriodStatistics(), 
+        self.tower_sales: List[PulseTransaction]|None = list()
+        self.spikes: List[PulseTransaction]|None = list()
+        self.per_period_statistics: Dict[str, PerPeriodStatistics|None] = \
+                                    { "30": PerPeriodStatistics(), 
                                       "60": PerPeriodStatistics(),
                                       "90": PerPeriodStatistics(),
                                       "180": PerPeriodStatistics(),
@@ -143,31 +147,32 @@ class PropertyReport(object):
         if self.per_period_statistics is not None:
             per_period_statistics = dict()
             for k in self.per_period_statistics.keys():
-                if self.per_period_statistics[k] is not None:
-                    per_period_statistics[k] = self.per_period_statistics[k].to_dict()
+                pps = self.per_period_statistics[k] 
+                if pps is not None:
+                    per_period_statistics[k] = pps.to_dict()
             d["per_period_statistics"] = per_period_statistics
         return d
 
-    def tostring():
+    def tostring(self):
         return self.__dict__
 
 class ComplexEncoder(json.JSONEncoder):
 
-    def default(self, obj):
-        if isinstance(obj,datetime) or isinstance(obj, date):
-            return obj.isoformat()
-        if isinstance(obj, Decimal):
-            return float(obj)
-        elif isinstance(obj, PropertyReport):
-            return obj.to_dict()
-        elif isinstance(obj, PulseTransaction):
-            return obj.to_dict()
-        elif isintance(obj,PerPeriodStatistics):
-            return obj.to_dict()
-        return json.JSONEncoder.default(self, obj)
+    def default(self, o):
+        if isinstance(o,datetime) or isinstance(o, date):
+            return o.isoformat()
+        if isinstance(o, Decimal):
+            return float(o)
+        elif isinstance(o, PropertyReport):
+            return o.to_dict()
+        elif isinstance(o, PulseTransaction):
+            return o.to_dict()
+        elif isinstance(o,PerPeriodStatistics):
+            return o.to_dict()
+        return json.JSONEncoder.default(self, o)
 
 
-def get_ads(community: str, config: Config) -> (List[PropertyReport], Connection):
+def get_ads(community: str, config: Config) -> Tuple[List[PropertyReport], Connection]:
     max_price = config.report_max_ads_price()
     supported_sizes = ','.join(
             list(map(lambda x: f"'{x}'",Report.supported_sizes)))
@@ -243,7 +248,7 @@ def transaction_by_tower(community: str, tower :str, conn, conf: Config) ->List[
     transaction: List[PulseTransaction] = list()
     # logging.debug(f"sql: {sql}")
     for row in transaction_row:
-        transaction.append(PulseTransaction(row, pulse.COLUMNS))
+        transaction.append(PulseTransaction(row))
     # logging.debug(f" community {community} - tower: {tower} - fetched: {len(transaction)} transaction") 
     return transaction 
 
@@ -252,8 +257,9 @@ def _save_ad_sale(a: PropertyReport, conn):
         return
     for p in a.tower_sales:
         __save_ad_sale_data(a, p, False, conn)
-    for p in a.spikes:
-        __save_ad_sale_data(a, p, True, conn)
+    if a.spikes is not None:
+        for p in a.spikes:
+            __save_ad_sale_data(a, p, True, conn)
 
 def __save_ad_sale_data(a:PropertyReport,p: PulseTransaction, is_spike: bool, conn):
         database_util.execute_insert_statement("""
@@ -270,7 +276,7 @@ def __save_ad_sale_data(a:PropertyReport,p: PulseTransaction, is_spike: bool, co
            (a.id, p.transaction_id,a.score, a.community, is_spike, a.score, is_spike), conn)
 
      
-def _save_per_period_statistics(a: PropertyReport,p: PerPeriodStatistics, conn):
+def _save_per_period_statistics(a: PropertyReport,p: PerPeriodStatistics|None, conn):
     if p is None: 
         return
 
@@ -368,8 +374,9 @@ def save_report(p: Report, conn:Connection):
     for v in p.by_bedrooms_report.values(): 
         for a in v.ads:
             _save_ad_sale(a, conn)
-            for p in a.per_period_statistics.values():
-                _save_per_period_statistics(a, p, conn)
+            if a.per_period_statistics is not None:
+                for pps in a.per_period_statistics.values():
+                    _save_per_period_statistics(a, pps, conn)
                
 def clean_report():
     conn = database_util.get_connection()

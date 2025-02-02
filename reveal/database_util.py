@@ -1,10 +1,9 @@
 from reveal import (logging, db_schema)
-from typing import Any, List, Optional, Set
+from typing import Any, List, Optional 
 import hashlib
 import psycopg
 from psycopg import Connection
 from dotenv import load_dotenv 
-from reveal import logging
 import os
 
 migrations = "create table dashboard.migrations(statement_sha text primary key)"

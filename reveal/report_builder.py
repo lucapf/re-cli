@@ -1,6 +1,6 @@
 from reveal import report_dao, logging, util
 from reveal.config import Config
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta 
 from reveal.report_dao import (
                                 Report,                                     
                                 PulseTransaction, 
@@ -9,11 +9,11 @@ from reveal.report_dao import (
                                 PropertyReport, 
                                 PerPeriodStatistics
                               )
-from typing import List 
+from typing import Dict, List, Tuple 
 import json
 
 def build_report():
-    r = BuildReport().build_community_report('Dubai Marina')
+    BuildReport().build_community_report('Dubai Marina')
     
 def filter_by_delta_size( sales: List[PulseTransaction], ads_size: int, config: Config)  -> List[PulseTransaction]:
     delta = config.report_delta_perc()
@@ -25,9 +25,8 @@ def filter_by_delta_size( sales: List[PulseTransaction], ads_size: int, config: 
     return list(filter(lambda s: s.size_sqft > min_size and s.size_sqft < max_size, sales ))
 
 def remove_spikes(sales: List[PulseTransaction], 
-                  config: Config) -> ( List[PulseTransaction], 
-                                       List[PulseTransaction]
-                                                    ):
+                  config: Config) -> Tuple[ List[PulseTransaction]|None, List[PulseTransaction]|None]:
+                                                    
     if sales is None or len(sales) == 0:
         return (None, None)
     threshold = config.report_spike_threshold_perc() / 100
@@ -51,31 +50,27 @@ class BuildReport(object):
 
     def get_tower_transaction(
             self, community: str, tower: str, bedrooms: str, conn
-                             ) -> list[PulseTransaction]:
-        if not tower in self.community_transaction.keys():
+                             ) -> list[PulseTransaction]|None:
+        if tower not in self.community_transaction.keys():
              self.community_transaction[tower] = report_dao. \
-                                 transaction_by_tower(community, 
-                                                      tower, 
-                                                      conn, 
-                                                      self.config);
+                                 transaction_by_tower(community, tower, conn, self.config)
         sales = self.community_transaction[tower]
-        return list(filter(lambda t: t.bedrooms == bedrooms, sales)) \
-                   if not sales is None else None
+        return list(filter(lambda t: t.bedrooms == bedrooms, sales)) if sales is not None else None
 
-    def per_period_statistics(self, a: PropertyReport) -> PropertyReport:
+    def per_period_statistics(self, a: PropertyReport) -> PropertyReport|None:
         for p in a.per_period_statistics.keys():
           a.per_period_statistics[p] = \
-                  self.calculate_statistics(
-                           p, a.tower_sales, a.price_sqft, a.price_sqft
-                                            )
+                  self.calculate_statistics( p, a.tower_sales, a.price_sqft, a.price_sqft)
 
 
 
-    def calculate_statistics(self, interval: str, tower_sales: List[PulseTransaction], 
-                             ad_price_sqft: float, price_sqft: float )  -> PerPeriodStatistics:
+    def calculate_statistics(self, interval: str, tower_sales: List[PulseTransaction]| None, 
+                             ad_price_sqft: float, price_sqft: float )  -> PerPeriodStatistics|None:
         from_date = datetime.now() - timedelta(int(interval)) \
                         if interval.isdigit() else datetime.strptime('2000-01-01', '%Y-%m-%d')
         from_date = from_date.date()
+        if tower_sales is None: 
+            return None
         if util.is_empty_list(tower_sales): 
             return None
         logging.debug(f"from: {from_date}  - list {len(tower_sales)}")
@@ -87,22 +82,23 @@ class BuildReport(object):
         price_list = list(map(lambda x: int(x.actual_worth), per_period_sales))
         logging.debug(f"price_list: {price_list}")
         p.max_price = max(price_list)
-        p.avg_price = sum(price_list) / len(price_list)
+        p.avg_price = int(sum(price_list) / len(price_list))
         p.min_price = min(price_list)
         price_sqft_list = list(map(lambda x : x.price_sqft, per_period_sales))
-        p.max_price_sqft = max(price_sqft_list) 
-        p.avg_price_sqft = sum(price_sqft_list) / len(price_sqft_list)
-        p.min_price_sqft = min(price_sqft_list)
+        p.max_price_sqft = int(max(price_sqft_list)) 
+        p.avg_price_sqft = int(sum(price_sqft_list) / len(price_sqft_list))
+        p.min_price_sqft = int(min(price_sqft_list))
         p.current_vs_avg_perc =  int((ad_price_sqft / p.avg_price_sqft  - 1) * 100 )
         p.sale_transaction = len(per_period_sales)
         logging.info(f"price_sqft: {ad_price_sqft} avg: {p.avg_price_sqft}")
         return p
 
     def calculate_score(self, a: PropertyReport):
-        return min(map(lambda kv: 
-                        kv[1].current_vs_avg_perc if kv[1] is not None else 100 
-                        ,a.per_period_statistics.items()))
-
+        values = map(lambda kv: kv[1], a.per_period_statistics.items())
+        non_null_values = list(filter(None, values))
+        if len(non_null_values)>0:
+                return sum(map(lambda v: v.current_vs_avg_perc ,non_null_values))/len(non_null_values)
+        return 0
 
 
     def minify_report_data(self,r: Report) -> dict:
@@ -111,7 +107,6 @@ class BuildReport(object):
                            } 
         per_bedrooms_report = dict()
         for k,v in r.by_bedrooms_report.items():
-            l = list()
             for a in v.ads:
                 i = {
                      'id': a.id, 'score': a.score, 
@@ -134,7 +129,7 @@ class BuildReport(object):
                     lambda x: {"price": x.actual_worth, 
                                "price_sqft": x.price_sqft, 
                                "instance_date": x.instance_date},a.tower_sales))
-            per_bedrooms_report.update({k: i}) 
+                per_bedrooms_report.update({k: i}) 
             minified_report.update({'by_bedrooms_report': per_bedrooms_report})
         return minified_report
 
@@ -149,11 +144,13 @@ class BuildReport(object):
         report.avg_size = sum(map(lambda a: a.size, ads)) / report.num_ads
         for a in ads:
             sales = self.get_tower_transaction(community, a.tower, a.bedrooms, conn)
+            if sales is None:
+                continue
             logging.info(f"found: {len(sales)} compatibile transactions")
             sales = filter_by_delta_size(sales, a.size, self.config)
             a.tower_sales, a.spikes = remove_spikes(sales, self.config)
             self.per_period_statistics(a)
-            if not a.bedrooms in bedrooms_ads_dic.keys():
+            if a.bedrooms not in bedrooms_ads_dic.keys():
                 bedrooms_ads_dic[a.bedrooms] = PerTypeReport()
             ads_report = bedrooms_ads_dic[a.bedrooms]
             ads_report.ads.append(a)
@@ -170,6 +167,7 @@ class BuildReport(object):
                 json.dumps(self.minify_report_data(report), cls=ComplexEncoder, indent=2)
                            )
         conn.close()
+        return report
         
         
     def clean_report(self):

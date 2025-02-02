@@ -95,5 +95,5 @@ def get_status_by_job_id(job_id: int, response: Response):
     job_status = job.get_status(job_id)
     if job_status is None:
         response.status_code = 403 
-        return f"not found"
+        return "not found"
     return job_status[0]
