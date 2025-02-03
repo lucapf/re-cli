@@ -140,7 +140,7 @@ def insert(transactions: Optional[csv.DictReader]) -> int:
     logging.debug(f"sqlstatement: {sql_insert_statement}")
     logging.debug(f"pulse: {len(pulse_transactions)}")
 
-    cursor.executemany(sql.SQL(sql_insert_statement),(pulse_transactions,))
+    cursor.executemany(sql_insert_statement,pulse_transactions)
     database_util.execute_insert_statement("update pulse set building_name = null where replace(building_name,' ','')=''", None, conn)
     conn.commit()
     logging.debug("completed!")
