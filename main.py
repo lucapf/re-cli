@@ -1,7 +1,8 @@
 from fastapi import FastAPI, status, Response
 from reveal.report_builder import BuildReport
 from reveal import property_match, pulse, logging, propertyfinder
-from reveal import job
+from reveal import job 
+from reveal import link_ads
 from reveal.job import JobExecution
 from fastapi import BackgroundTasks 
 
@@ -19,6 +20,15 @@ def read_root( community: str, response: Response):
 def clean_report( ):
    BuildReport().clean_report() 
    return "all report cleared"
+
+@app.get("/be/link/{community}/stats", status_code=200)
+def link_stats(community, response: Response):
+    if community not in allowedCommunities:
+        response.status_code = 403
+        return f"allowed communities {allowedCommunities}"
+    return link_ads.link_stats(community) 
+
+
 
 @app.post("/be/link/{community}", status_code=201)
 def link(community, response: Response):

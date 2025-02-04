@@ -51,8 +51,9 @@ def _score(sample_i: str, candidates: List[str]|None) -> List[Tuple[float, str]]
 
 def remove_link(community: str):
     community_tuple = community,
-    database_util.execute_insert_statement (
-        'delete from propertyfinder_pulse_mapping where propertyfinder_community=%s',
+    database_util.execute_insert_statement ('''
+        delete from propertyfinder_pulse_mapping where propertyfinder_community=%s
+                                            ''',
         community_tuple, None, True)
     
 
