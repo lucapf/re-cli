@@ -2,7 +2,6 @@ import csv
 import os
 from typing import List, Optional
 from datetime import datetime
-from psycopg import sql
 import requests
 from reveal import logging,database_util, util
 
@@ -25,6 +24,7 @@ COLUMNS = [
             'area_id', 
             'area_name', 
             'building_name',
+            'building_number'
             'project_number', 
             'project_name', 
             'master_project', 

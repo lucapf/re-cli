@@ -1,13 +1,17 @@
 from fastapi import FastAPI, status, Response
 from reveal.report_builder import BuildReport
-from reveal import property_match, pulse, logging, propertyfinder
+from reveal import property_match, pulse, logging, propertyfinder, pulse_buildings
 from reveal import job 
-from reveal import link_ads
+from reveal import link_ads, database_util
 from reveal.job import JobExecution
 from fastapi import BackgroundTasks 
+import traceback
+
 
 app = FastAPI()
 allowedCommunities = ["Dubai Marina", "Jumeirah Lake Towers", "Al Furjan", "Jumeirah Village Circle"]
+database_util.init_database()
+
 @app.post("/be/report/{community}", status_code=201)
 def read_root( community: str, response: Response):
     if community not in allowedCommunities:
@@ -70,6 +74,13 @@ def download_and_process_pulse_data(backgound_tasks: BackgroundTasks):
     backgound_tasks.add_task(_download_and_processPulse_data, job_execution)
     return job_execution.id
 
+@app.post("/be/pulse/buildings", status_code=201)
+def load_buildings(response: Response):
+    try:
+        pulse_buildings.load()
+    except Exception:
+        response.status_code= 500
+        logging.err(f"error loading file {traceback.format_exc()}")
 
 def _download_and_processPulse_data(job_execution: JobExecution):
     try:

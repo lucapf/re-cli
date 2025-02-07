@@ -7,6 +7,7 @@ import json
 from psycopg  import Connection
 from typing import Optional 
 import time
+import traceback
 
 
 headers = {
@@ -29,6 +30,9 @@ def get_ads(max_pages: int, job_execution: JobExecution) -> int:
                 job_execution.error(f"{current_page} no data - abort")
                 break
             json_data = _filter_out_non_properties(json_data)
+            with open(f"ads_{current_page}", "w") as ad_file:
+                json.dump(json_data, ad_file)
+
             if json_data is None:
                 job.progress(job_execution,f"{current_page} workable no data - continue")
                 continue
@@ -41,7 +45,8 @@ def get_ads(max_pages: int, job_execution: JobExecution) -> int:
             _sync()
             job_execution.success(f"execution complete, added {new_items} ads")
     except Exception:
-        job_execution.error(Exception)
+        logging.err(f"cannot process ads : {traceback.format_exc()}")
+        job_execution.error("cannot process the ads pls check logs")
     finally:
         job.complete(job_execution)
     
@@ -84,10 +89,10 @@ def _filter_out_non_properties(property_data:list|None) -> list|None:
     if property_data is None:
         return None
     pf_filtered = list()
-    for l in property_data:
-        if l.get("listing_type") == "property":
-            if l["property"].get("property_type") != 'Land':
-                pf_filtered.append(l)
+    for pd in property_data:
+        if pd.get("listing_type") == "property":
+            if pd["property"].get("property_type") != 'Land':
+                pf_filtered.append(pd)
     return pf_filtered 
 
 def _map_db_fields(a: dict) -> dict:
@@ -99,9 +104,9 @@ def _map_db_fields(a: dict) -> dict:
      item["bedrooms"] =  a["property"]["bedrooms"]
      item["bathrooms"] =  a["property"]["bathrooms"]
      item["price_sqft"] = float(item["price"] / item["size"])
-     for l in a["property"]["location_tree"]:
-         key = str(l["type"]).lower()
-         value = l["name"]
+     for ltree in a["property"]["location_tree"]:
+         key = str(ltree["type"]).lower()
+         value = ltree["name"]
          item[key] = value 
      item["location_slug"] =  a["property"]["location"].get("slug")
      item["location_name"] =  a["property"]["location"].get("full_name")
@@ -111,6 +116,7 @@ def _map_db_fields(a: dict) -> dict:
          item["longitude"] =  coordinates.get("lon")
      item["listed_date"] =  a["property"]["listed_date"]
      item["url"] =  a["property"]["share_url"]
+     item["completion_status"] =  a["property"]["completion_status"]
      return item
      
 def clean():

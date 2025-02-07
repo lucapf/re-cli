@@ -55,29 +55,27 @@ create table if not exists propertyfinder (
     )
 """,
 """
-CREATE TABLE dashboard.propertyfinder_pulse_area_mapping (
+ALTER TABLE propertyfinder ADD COLUMN IF NOT EXISTS completion_status varchar (18);
+""",
+"""
+CREATE TABLE IF NOT EXISTS dashboard.propertyfinder_pulse_area_mapping (
 	"name" varchar NOT NULL,
 	pf_community varchar(100) NOT NULL,
 	pulse_master_project varchar(50) NOT NULL,
 	CONSTRAINT propertyfinder_pulse_area_mapping_pk PRIMARY KEY (pf_community),
 	CONSTRAINT propertyfinder_pulse_area_mapping_unique UNIQUE ("name")
 );
-COMMENT ON TABLE dashboard.propertyfinder_pulse_area_mapping IS 'map propertyfinder and pulse areas (JLT, Dubai Marina, JVC...)';
-
--- Column comments
-
-COMMENT ON COLUMN dashboard.propertyfinder_pulse_area_mapping."name" IS 'area name (default commintiry by propertyfinder)';
 
 """,
 """
-CREATE TABLE dashboard.propertyfinder_tower_mapping (
+CREATE TABLE IF NOT EXISTS dashboard.propertyfinder_tower_mapping (
 	community varchar(100) NOT NULL,
 	tower varchar(150) NULL,
 	CONSTRAINT propertyfinder_pulse_tower_mapping_pk PRIMARY KEY (community)
 )
 """,
 """
-CREATE TABLE dashboard.pulse_tower_mapping (
+CREATE TABLE IF NOT EXISTS dashboard.pulse_tower_mapping (
 	pulse_master_project varchar(50) NOT NULL,
 	building_name varchar(100) NULL,
 	CONSTRAINT pulse_tower_mapping_pk PRIMARY KEY (pulse_master_project)

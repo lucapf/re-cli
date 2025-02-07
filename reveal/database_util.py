@@ -35,8 +35,8 @@ def init_database():
                 where schemaname='dashboard' and tablename='migrations'
             """
         cursor.execute(statement)
-        if cursor.fetchone() == None:
-            logging.debug(f"migration table does not exists")
+        if cursor.fetchone() is None:
+            logging.debug("migration table does not exists")
             cursor.execute(migrations)
         for s in db_schema.sql_statements:
             statement_sha  = hashlib.sha1(s.encode("UTF-8")).hexdigest()
@@ -52,14 +52,14 @@ def init_database():
 def fetch(sqlStatement: str,values:Optional[tuple] = None, 
           size:Optional[int] = None , conn: Connection|None =  None) -> List[Any]:
     connection = conn
-    if connection == None:
+    if connection is None:
         connection = _connect()
     return __execute_sql_query(connection, sqlStatement, values, size)
 
 def fetch_map(sqlStatement: str,values:Optional[dict] = None, 
           conn: Connection|None =  None) -> List[Any]:
     connection = conn
-    if connection == None:
+    if connection is None:
         connection = _connect()
     cursor = connection.cursor()
     cursor.execute(sqlStatement,values)
