@@ -86,10 +86,6 @@ insert into propertyfinder_pulse_area_mapping (name, pf_community, pulse_master_
         values ('Jumeirah Lake Towers','Jumeirah Lake Towers','Jumeirah Lakes Towers') on conflict do nothing;
 insert into propertyfinder_pulse_area_mapping (name, pf_community, pulse_master_project)
         values ('Dubai Marina','Dubai Marina','Dubai Marina') on conflict do nothing;
-insert into propertyfinder_pulse_area_mapping (name, pf_community, pulse_master_project)
-        values ('Jumeirah Village Circle','Jumeirah Village Circle','Jumeirah Village Circle') on conflict do nothing;
-insert into propertyfinder_pulse_area_mapping (name, pf_community, pulse_master_project)
-        values ('Al Furjan','Al Furjan','Al Furjan') on conflict do nothing;  
 """
 
 ]
