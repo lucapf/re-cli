@@ -17,13 +17,17 @@ def read_root( community: str, response: Response):
     if community not in allowedCommunities:
         response.status_code = status.HTTP_406_NOT_ACCEPTABLE
         return f"community: '{community}' not allowed available communities {allowedCommunities}"
+    BuildReport().clean_report(community)
     BuildReport().build_community_report(community)
     return "done"
 
-@app.delete("/be/report", status_code=201)
-def clean_report( ):
-   BuildReport().clean_report() 
-   return "all report cleared"
+@app.delete("/be/report/{community}", status_code=201)
+def clean_report(community:str , response: Response):
+    if community not in allowedCommunities:
+        response.status_code = status.HTTP_406_NOT_ACCEPTABLE
+        return 
+    BuildReport().clean_report(community) 
+    return "all report cleared"
 
 @app.get("/be/link/{community}/stats", status_code=200)
 def link_stats(community, response: Response):

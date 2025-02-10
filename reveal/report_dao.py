@@ -378,8 +378,9 @@ def save_report(p: Report, conn:Connection):
                 for pps in a.per_period_statistics.values():
                     _save_per_period_statistics(a, pps, conn)
                
-def clean_report():
+def clean_report(community: str ):
+    community_tuple = community,
     conn = database_util.get_connection()
-    database_util.execute_insert_statement("delete from report_per_period_statistics", None, conn)
-    database_util.execute_insert_statement("delete from report_propertyfinder", None, conn)
-    database_util.execute_insert_statement("delete from report")
+    database_util.execute_insert_statement("delete from report_per_period_statistics where community = %s", community_tuple, conn)
+    database_util.execute_insert_statement("delete from report_propertyfinder where community = %s",community_tuple, conn)
+    database_util.execute_insert_statement("delete from report where community = %s", community_tuple, conn)

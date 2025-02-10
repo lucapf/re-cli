@@ -82,6 +82,10 @@ CREATE TABLE IF NOT EXISTS dashboard.pulse_tower_mapping (
 )
 """,
 """
+insert into configuration (label,key, int_value, description)values('matcher threshold score','matcher.threshold.score', 90,'threshold for matching tower names' )
+"""
+,
+"""
 insert into propertyfinder_pulse_area_mapping (name, pf_community, pulse_master_project)
         values ('Jumeirah Lake Towers','Jumeirah Lake Towers','Jumeirah Lakes Towers') on conflict do nothing;
 insert into propertyfinder_pulse_area_mapping (name, pf_community, pulse_master_project)

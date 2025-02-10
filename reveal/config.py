@@ -24,6 +24,9 @@ class Config(object):
     def report_delta_perc(self)-> int:
         return int(self.__get_value('report.delta_perc'))
 
+    def matcher_threshold_score(self) -> int:
+        return int(self.__get_value('matcher.threshold.score'))
+
     def report_max_ads_price(self) -> int:
         return int(self.__get_value('report.max_price'))
 

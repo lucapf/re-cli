@@ -24,7 +24,6 @@ COLUMNS = [
             'area_id', 
             'area_name', 
             'building_name',
-            'building_number',
             'project_number', 
             'project_name', 
             'master_project', 

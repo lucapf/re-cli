@@ -170,8 +170,8 @@ class BuildReport(object):
         return report
         
         
-    def clean_report(self):
-        report_dao.clean_report()
+    def clean_report(self, community:str):
+        report_dao.clean_report(community)
         
         
 

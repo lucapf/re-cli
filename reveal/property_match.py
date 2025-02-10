@@ -1,5 +1,8 @@
 from reveal import ( database_util, logging)
 from typing import List,Tuple
+from thefuzz import process
+
+from reveal.config import Config
 
 
 def __fetch_pulse_buildings(master_project: str, conn)->List[str]|None:
@@ -29,7 +32,15 @@ def __fetch(sql:str, value:str, conn) -> List[str]|None:
         return None
     return list(filter(None, map(lambda x: str(x[0]) if len(x)>0 and x[0] !=''  else None,building_name )))
 
-def _score(sample_i: str, candidates: List[str]|None) -> List[Tuple[float, str]] | None:
+def _score_fuzzy(sample_i: str, candidates: List[str]|None, threshold: int) -> Tuple[int, str] | None:
+    (matched, score) = process.extractOne(sample_i, candidates)
+    if score >= threshold:
+        return ( score, matched)
+    else: 
+        return None
+        
+
+def _score_normal(sample_i: str, candidates: List[str]|None) -> List[Tuple[float, str]] | None:
     if candidates is None or sample_i == 'None' or sample_i == '': 
         return None
     sample = sample_i.lower()
@@ -55,7 +66,7 @@ def remove_link(community: str):
         delete from propertyfinder_pulse_mapping where propertyfinder_community=%s
                                             ''',
         community_tuple, None, True)
-    
+
 
 def match(community: str) :
     '''
@@ -76,19 +87,14 @@ def match(community: str) :
     for areas in database_util.fetch(sql, community_tuple, None, conn):
         propertyfinder_buildings = __fetch_propertyfinder_buildings(areas[1], conn)
         pulse_buildings = __fetch_pulse_buildings(areas[2], conn)
+        threshold = Config().matcher_threshold_score()
         if propertyfinder_buildings is None:
             continue
         for pf_building in propertyfinder_buildings:
-            candidates = _score(pf_building, pulse_buildings)
-            if candidates is None:
+            candidate = _score_fuzzy(pf_building, pulse_buildings, threshold)
+            if candidate is None:
                 continue
-            for matched in candidates:
-                values = (areas[1],pf_building, areas[2],matched[1] )
-                logging.debug(f"store: {pf_building} - {matched}  - values {values}")
-
+            else:
+                values = (areas[1],pf_building, areas[2],candidate[1] )
                 database_util.execute_insert_statement(sql_insert,values, conn )
-
-        # logging.debug(f"areas: {areas}")
-        # logging.debug(f"propertyfinder: {propertyfinder_buildings}")
-        # logging.debug(f"pulse: {pulse_buildings}")
     conn.close()
