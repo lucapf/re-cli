@@ -90,6 +90,26 @@ insert into propertyfinder_pulse_area_mapping (name, pf_community, pulse_master_
         values ('Jumeirah Lake Towers','Jumeirah Lake Towers','Jumeirah Lakes Towers') on conflict do nothing;
 insert into propertyfinder_pulse_area_mapping (name, pf_community, pulse_master_project)
         values ('Dubai Marina','Dubai Marina','Dubai Marina') on conflict do nothing;
+""",
 """
+CREATE TABLE IF NOT EXISTS dashboard.property_labels (
+	id int8 DEFAULT nextval('reveal_sequence') NOT NULL,
+	propertyfinder_id varchar(8) NOT NULL,
+	"key" varchar(20) NOT NULL,
+	value varchar(50) NOT NULL,
+	CONSTRAINT labels_pk PRIMARY KEY (id),
+	CONSTRAINT labels_propertyfinder_fk FOREIGN KEY (propertyfinder_id) REFERENCES dashboard.propertyfinder(id) ON DELETE CASCADE
+)
+""",
+"""
+ALTER TABLE propertyfinder ADD COLUMN IF NOT EXISTS description text;
+""", 
+"""
+insert into configuration (label,key, str_value, description)values('Penalized keywords','penalized.words', 'Upgraded, Renovated, Immaculate, Premium interiors, Brand new','if in the description, score will be lowered of pernalized score' ) on conflict do nothing;
+insert into configuration (label,key, str_value, description)values('Penalized keywords score','penalized.words.score', -5,'Penalized words score' ) on conflict do nothing;
+insert into configuration (label,key, str_value, description)values('Boosted keywords','boosted.words','Motivated Seller, Investor deal, Best layout, large layout, big layout ,Huge layout, Marina view,  sea view, lake view, distressed', 'if in the, score will be increased of boosted score'  ) on conflict do nothing;
+insert into configuration (label,key, str_value, description)values('Boosted keywords score','boosted.words.score', -5,'Boosted keywords score' ) on conflict do nothing;
+"""
+
 
 ]

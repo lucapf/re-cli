@@ -8,6 +8,7 @@ from psycopg  import Connection
 from typing import Optional 
 import time
 import traceback
+import os
 
 
 headers = {
@@ -15,10 +16,13 @@ headers = {
           }
 get_property_pattern = '"searchResult":(.*),"_nextI18Next"'
 get_property_detail_pattern = '"__NEXT_DATA__".*>(.*)</script><div id="__next">'
+ads_dir = "ads"
 
 def get_ads(max_pages: int, job_execution: JobExecution) -> int:
     new_items = 0
     try:
+        if not os.path.exists(ads_dir):
+            os.mkdir(ads_dir)
         for current_page in range(1,max_pages):
             job.progress(job_execution, f"process page {current_page}/ {max_pages}")
             raw_data = __get_ads(current_page)
@@ -30,7 +34,7 @@ def get_ads(max_pages: int, job_execution: JobExecution) -> int:
                 job_execution.error(f"{current_page} no data - abort")
                 break
             json_data = _filter_out_non_properties(json_data)
-            with open(f"ads_{current_page}", "w") as ad_file:
+            with open(f"{ads_dir}/ads_{current_page}.json", "w") as ad_file:
                 json.dump(json_data, ad_file)
 
             if json_data is None:
@@ -103,6 +107,7 @@ def _map_db_fields(a: dict) -> dict:
      item["size"] =  int(a["property"]["size"]["value"])
      item["bedrooms"] =  a["property"]["bedrooms"]
      item["bathrooms"] =  a["property"]["bathrooms"]
+     item["description"] = a["property"]["description"]
      item["price_sqft"] = float(item["price"] / item["size"])
      for ltree in a["property"]["location_tree"]:
          key = str(ltree["type"]).lower()
