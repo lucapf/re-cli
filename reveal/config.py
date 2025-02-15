@@ -1,5 +1,5 @@
 from reveal import database_util, logging
-from typing import Dict,Any
+from typing import Dict,Any, List
 
 class Config(object):
     configuration: Dict[str, Any] = dict()
@@ -19,7 +19,6 @@ class Config(object):
         logging.debug(f"configuration: {db_configuration}")
         for c in db_configuration:
             Config.configuration[c[0]] = c[1] if c[1] is not None else c[2]
-        initialized = True
 
     def report_delta_perc(self)-> int:
         return int(self.__get_value('report.delta_perc'))
@@ -35,3 +34,21 @@ class Config(object):
 
     def report_max_sales_days(self) -> int:
         return int(self.__get_value('report.max_sales_days'))
+
+    def boosted_keywords(self) -> List[str]:
+        return self.__get_value('boosted.words').split(',')
+    
+    def boosted_keywords_score(self) -> int:
+        return int(self.__get_value('boosted.words.score'))
+
+    def penalized_keywords(self) -> List[str]:
+        return self.__get_value('penalized.words').split(',')
+    
+    def penalized_keywords_score(self) -> int:
+        return int(self.__get_value('penalized.words.score'))
+    
+    def threshold_size_1br(self) -> int:
+        return int(self.__get_value('threshold.size.1br'))
+
+    def threshold_size_score(self) -> int:
+        return int(self.__get_value('threshold.size.score'))

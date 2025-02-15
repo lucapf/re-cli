@@ -1,4 +1,4 @@
-from reveal import report_dao, logging, util
+from reveal import report_dao, logging, util, label
 from reveal.config import Config
 from datetime import datetime, timedelta 
 from reveal.report_dao import (
@@ -47,6 +47,12 @@ class BuildReport(object):
         self.community_transaction = dict()
         self.config = Config()
         self.sale_size_delta = self.config.report_delta_perc()
+        self.threshold_size_1br = self.config.threshold_size_1br()
+        self.threshold_size_score = self.config.threshold_size_score()
+        self.penalized_keywords = self.config.penalized_keywords()
+        self.penalized_keywords_score = self.config.penalized_keywords_score()
+        self.boosted_keywords = self.config.boosted_keywords()
+        self.boosted_keywords_score = self.config.boosted_keywords_score()
 
     def get_tower_transaction(
             self, community: str, tower: str, bedrooms: str, conn
@@ -88,18 +94,51 @@ class BuildReport(object):
         p.max_price_sqft = int(max(price_sqft_list)) 
         p.avg_price_sqft = int(sum(price_sqft_list) / len(price_sqft_list))
         p.min_price_sqft = int(min(price_sqft_list))
-        p.current_vs_avg_perc =  int((ad_price_sqft / p.avg_price_sqft  - 1) * 100 )
+        p.current_vs_avg_perc =  int((1 - (ad_price_sqft / p.avg_price_sqft )) * 100 )
         p.sale_transaction = len(per_period_sales)
         logging.info(f"price_sqft: {ad_price_sqft} avg: {p.avg_price_sqft}")
         return p
 
-    def calculate_score(self, a: PropertyReport):
+    def base_score(self, a: PropertyReport):
+        '''
+        base score, 
+        '''
         values = map(lambda kv: kv[1], a.per_period_statistics.items())
         non_null_values = list(filter(None, values))
         if len(non_null_values)>0:
                 return sum(map(lambda v: v.current_vs_avg_perc ,non_null_values))/len(non_null_values)
+        return 0 
+
+    def adjust_score_big_size(self, a:PropertyReport) -> float:
+        if a.bedrooms == "1" and a.size >= self.threshold_size_1br:
+            label.add_label_to_property(f"2 B/R candidate (+{self.threshold_size_score})",a.id)
+            return self.threshold_size_score
+        return 0 
+
+    def adjust_score_boosted_keywords(self, a:PropertyReport) -> float:
+        for p in str(self.boosted_keywords).split(","):
+            if a.description is None:
+                continue
+            if p in a.description:
+                label.add_label_to_property(f"{p} + {self.boosted_keywords_score}",a.id)
+                return self.boosted_keywords_score
         return 0
 
+    def adjust_score_penalized_keywords(self, a:PropertyReport) -> float:
+        for p in str(self.penalized_keywords).split(","):
+            if a.description is None:
+                continue
+            if p in a.description:
+                label.add_label_to_property(f"{p} - {self.penalized_keywords_score}",a.id)
+                return self.penalized_keywords_score
+        return 0
+
+    def calculate_score(self, a: PropertyReport) -> float: 
+        return self.base_score(a) + self.adjust_score_big_size(a) \
+                                 + self.adjust_score_boosted_keywords(a) \
+                                 + self.adjust_score_penalized_keywords(a)
+        
+        
 
     def minify_report_data(self,r: Report) -> dict:
         minified_report = {'id': r.num_ads,'avg_size': r.avg_size, 

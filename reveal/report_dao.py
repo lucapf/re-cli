@@ -101,7 +101,7 @@ class PropertyReport(object):
                    "location_name","size", 
                    "price","price_sqft","listed_date",
                    "type", "bathrooms", 
-                   "bedrooms","latitude", "longitude" 
+                   "bedrooms","latitude", "longitude", "description"
                   ]
 
     def __init__(self):
@@ -130,6 +130,7 @@ class PropertyReport(object):
                                       "180+": PerPeriodStatistics()
                                      }
         self.score: float = 0.0
+        self.description: str |None
 
     def to_dict(self):
         d = self.__dict__.copy()
