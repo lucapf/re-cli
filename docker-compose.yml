@@ -1,0 +1,16 @@
+version: '3.9'
+
+services:
+
+  db:
+    image: postgresql_reveal:0.0.1
+    restart: always
+    shm_size: 128mb
+    # volumes:
+    #   - ./pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER:  dashboard
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: dashboard
+    ports:
+    - 5432:5432

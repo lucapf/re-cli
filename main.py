@@ -9,7 +9,7 @@ import traceback
 
 
 app = FastAPI()
-allowedCommunities = ["Dubai Marina", "Jumeirah Lake Towers", "Al Furjan", "Jumeirah Village Circle"]
+allowedCommunities = ["Dubai Marina", "Jumeirah Lake Towers", "Al Furjan", "Jumeirah Village Circle", "Jumeirah Beach Residence"]
 database_util.init_database()
 
 @app.post("/be/report/{community}", status_code=201)
@@ -40,6 +40,9 @@ def link_stats(community, response: Response):
 
 @app.post("/be/link/{community}", status_code=201)
 def link(community, response: Response):
+    '''
+     link communities,using standard fuzzy logic
+    '''
     if community not in allowedCommunities:
         response.status_code = 403 
         return f"allowed communities {allowedCommunities}"
@@ -48,9 +51,6 @@ def link(community, response: Response):
 
 @app.delete("/be/link/{community}", status_code=201)
 def link_community(community, response: Response):
-    '''
-     link communities,using standard fuzzy logic 
-    '''
     if community not in allowedCommunities:
         response.status_code = 403 
         return f"allowed communities {allowedCommunities}"
