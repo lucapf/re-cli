@@ -119,7 +119,7 @@ class BuildReport(object):
         for p in str(self.boosted_keywords).split(","):
             if a.description is None:
                 continue
-            if p in a.description:
+            if p.lower() in a.description.lower():
                 label.add_label_to_property(f"{p} + {self.boosted_keywords_score}",a.id)
                 return self.boosted_keywords_score
         return 0
