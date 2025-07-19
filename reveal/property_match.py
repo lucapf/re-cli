@@ -87,8 +87,11 @@ def match(community: str) :
           '''
     community_tuple  = community,
     for areas in database_util.fetch(sql, community_tuple, None, conn):
+        logging.debug(f"working propertyfinder: {areas[1]} pulse: {areas[2]}")
         propertyfinder_buildings = __fetch_propertyfinder_buildings(areas[1], conn)
+        logging.debug(f"propertyfinder_buildings: {propertyfinder_buildings}")
         pulse_buildings = __fetch_pulse_buildings(areas[2], conn)
+        logging.debug(f"pulse: {propertyfinder_buildings}")
         threshold = Config().matcher_threshold_score()
         if propertyfinder_buildings is None:
             continue
