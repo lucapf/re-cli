@@ -110,6 +110,9 @@ insert into configuration (label,key, str_value, description)values('Boosted key
 insert into configuration (label,key, int_value, description)values('Boosted keywords score','boosted.words.score', -5,'Boosted keywords score' ) on conflict do nothing;
 insert into configuration (label,key, int_value, description)values('1 Br threshold size','threshold.size.1br', 1000,'if 1 bedroom > this value, property is a good candidate for upgrade (2 br)' ) on conflict do nothing;
 insert into configuration (label,key, int_value, description)values('Treshold score','threshold.size.score', 10,'boost the score if might be upgraded' ) on conflict do nothing;
+""",
+"""
+insert into propertyfinder_pulse_area_mapping (name, pf_community, pulse_master_project,image) values ('JBR','Jumeirah Beach Residence','Jumeirah Beach Residence','/manager/images/jbr.jpg') on conflict do nothing;
 """
 
 
