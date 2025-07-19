@@ -2,14 +2,15 @@ from reveal import database_util, logging
 from typing import Dict,Any, List
 
 class Config(object):
-    configuration: Dict[str, Any] = dict()
-    initialized = False
 
     def __init__(self):
-        self.__initialize_values()
+        self.initialized:bool = False
+        self.configuration: Dict[str, Any] = dict()
 
-  
     def __get_value(self,config_key):
+        if not self.initialized:
+            self.__initialize_values()
+            self.initialized= True
         return self.configuration[config_key]
 
     def __initialize_values(self):
@@ -18,7 +19,7 @@ class Config(object):
                                               )
         logging.debug(f"configuration: {db_configuration}")
         for c in db_configuration:
-            Config.configuration[c[0]] = c[1] if c[1] is not None else c[2]
+            self.configuration[c[0]] = c[1] if c[1] is not None else c[2]
 
     def report_delta_perc(self)-> int:
         return int(self.__get_value('report.delta_perc'))

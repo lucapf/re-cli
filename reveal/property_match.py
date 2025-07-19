@@ -33,6 +33,8 @@ def __fetch(sql:str, value:str, conn) -> List[str]|None:
     return list(filter(None, map(lambda x: str(x[0]) if len(x)>0 and x[0] !=''  else None,building_name )))
 
 def _score_fuzzy(sample_i: str, candidates: List[str]|None, threshold: int) -> Tuple[int, str] | None:
+    if not candidates:
+        return None
     (matched, score) = process.extractOne(sample_i, candidates)
     if score >= threshold:
         return ( score, matched)
