@@ -113,6 +113,13 @@ insert into configuration (label,key, int_value, description)values('Treshold sc
 """,
 """
 insert into propertyfinder_pulse_area_mapping (name, pf_community, pulse_master_project,image) values ('JBR','Jumeirah Beach Residence','Jumeirah Beach Residence','/manager/images/jbr.jpg') on conflict do nothing;
+""",
+"""
+insert into configuration (label,key, int_value, description)values('min transactions 30','min.transactions.30', 1,'Min transactions last 30 days' ) on conflict do nothing;
+insert into configuration (label,key, int_value, description)values('min transactions 60','min.transactions.60', 2,'Min transactions last 60 days' ) on conflict do nothing;
+insert into configuration (label,key, int_value, description)values('min transactions 90','min.transactions.90', 3,'Min transactions last 90 days' ) on conflict do nothing;
+insert into configuration (label,key, int_value, description)values('min transactions 180','min.transactions.180', 3,'Min transactions last 180 days' ) on conflict do nothing;
+insert into configuration (label,key, int_value, description)values('min transactions 180+','min.transactions.180plus', 15,'Min known transactions' ) on conflict do nothing;
 """
 
 
