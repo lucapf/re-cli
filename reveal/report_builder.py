@@ -53,6 +53,11 @@ class BuildReport(object):
         self.penalized_keywords_score = self.config.penalized_keywords_score()
         self.boosted_keywords = self.config.boosted_keywords()
         self.boosted_keywords_score = self.config.boosted_keywords_score()
+        self.min_transactions_30 = self.config.report_min_transactions_30()
+        self.min_transactions_60 = self.config.report_min_transactions_60()
+        self.min_transactions_90 = self.config.report_min_transactions_90()
+        self.min_transactions_180 = self.config.report_min_transactions_180()
+        self.min_transactions_180_plus = self.config.report_min_transactions_180_plus()
 
     def get_tower_transaction(
             self, community: str, tower: str, bedrooms: str, conn
@@ -68,19 +73,21 @@ class BuildReport(object):
           a.per_period_statistics[p] = \
                   self.calculate_statistics( p, a.tower_sales, a.price_sqft, a.price_sqft)
 
+    def filter_by_interval(self, interval: str, tower_sales: List[PulseTransaction]) -> List[PulseTransaction]:
+        from_date = datetime.now() - timedelta(int(interval)) \
+                        if interval.isdigit() else datetime.strptime('2000-01-01', '%Y-%m-%d')
+        from_date = from_date.date()
+        logging.debug(f"from: {from_date}  - list {len(tower_sales)}")
+        return list(filter(lambda s: s.instance_date > from_date, tower_sales))
 
 
     def calculate_statistics(self, interval: str, tower_sales: List[PulseTransaction]| None, 
                              ad_price_sqft: float, price_sqft: float )  -> PerPeriodStatistics|None:
-        from_date = datetime.now() - timedelta(int(interval)) \
-                        if interval.isdigit() else datetime.strptime('2000-01-01', '%Y-%m-%d')
-        from_date = from_date.date()
         if tower_sales is None: 
             return None
         if util.is_empty_list(tower_sales): 
             return None
-        logging.debug(f"from: {from_date}  - list {len(tower_sales)}")
-        per_period_sales = list(filter(lambda s: s.instance_date > from_date, tower_sales))
+        per_period_sales  = self.filter_by_interval(interval, tower_sales)
         if util.is_empty_list(per_period_sales):
             return None
         p = PerPeriodStatistics()
@@ -172,6 +179,26 @@ class BuildReport(object):
             minified_report.update({'by_bedrooms_report': per_bedrooms_report})
         return minified_report
 
+    def check_transaction_per_period(self, a: PropertyReport) -> bool:
+        '''
+        return False if transaction per period doesn't match the configuration
+        '''
+
+        if a.tower_sales is None:
+            return False
+        intevals:dict = {"30": self.config.report_min_transactions_30(), 
+                    "60": self.config.report_min_transactions_60(),
+                    "90": self.config.report_min_transactions_90(),
+                    "180": self.config.report_min_transactions_180(),
+                    "180plus": self.config.report_min_transactions_180_plus(),
+                    }
+        for i in intevals.keys():
+            filtered_tower_sales = self.filter_by_interval(i, a.tower_sales)
+            if len(filtered_tower_sales) >= intevals[i]:
+                logging.debug(f"skiped {len(filtered_tower_sales)} < {intevals[i]}")
+                return False
+        return True
+    
     def build_community_report(self, community: str) -> report_dao.Report:
         report = report_dao.Report()
         ads, conn = report_dao.get_ads(community, self.config)
@@ -188,6 +215,8 @@ class BuildReport(object):
             logging.info(f"found: {len(sales)} compatibile transactions")
             sales = filter_by_delta_size(sales, a.size, self.config)
             a.tower_sales, a.spikes = remove_spikes(sales, self.config)
+            if not self.check_transaction_per_period(a):
+                continue
             self.per_period_statistics(a)
             if a.bedrooms not in bedrooms_ads_dic.keys():
                 bedrooms_ads_dic[a.bedrooms] = PerTypeReport()
@@ -211,7 +240,3 @@ class BuildReport(object):
         
     def clean_report(self, community:str):
         report_dao.clean_report(community)
-        
-        
-
-

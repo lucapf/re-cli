@@ -53,3 +53,18 @@ class Config(object):
 
     def threshold_size_score(self) -> int:
         return int(self.__get_value('threshold.size.score'))
+    
+    def report_min_transactions_30(self) -> int:
+        return int(self.__get_value('report.min.transactions.30'))
+
+    def report_min_transactions_60(self) -> int:
+        return int(self.__get_value('report.min.transactions.60'))
+
+    def report_min_transactions_90(self) -> int:
+        return int(self.__get_value('report.min.transactions.90'))
+
+    def report_min_transactions_180(self) -> int:
+        return int(self.__get_value('report.min.transactions.180'))
+
+    def report_min_transactions_180_plus(self) -> int:
+        return int(self.__get_value('report.min.transactions.180plus'))
